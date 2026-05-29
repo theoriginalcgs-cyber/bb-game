@@ -1057,6 +1057,53 @@ export default class BootScene extends Phaser.Scene {
         vgnd.generateTexture('ground_viper', 64, 32);
         vgnd.destroy();
 
+        // ── Zone tile variants ──────────────────────────────────────────
+
+        // Zone 2: Neon District
+        const gndN = this.make.graphics({ x: 0, y: 0, add: false });
+        gndN.fillStyle(0x0d0820); gndN.fillRect(0, 0, 64, 32);
+        gndN.fillStyle(0x4a1080); gndN.fillRect(0, 0, 64, 8);
+        gndN.fillStyle(0xb030f0); gndN.fillRect(0, 0, 64, 3);
+        gndN.fillStyle(0xdd66ff); gndN.fillRect(0, 3, 64, 1);
+        gndN.lineStyle(1, 0x6a1b9a, 0.6); gndN.strokeRect(0, 0, 64, 32);
+        gndN.generateTexture('ground_neon', 64, 32); gndN.destroy();
+
+        const pltN = this.make.graphics({ x: 0, y: 0, add: false });
+        pltN.fillStyle(0x1a0840); pltN.fillRect(0, 0, 64, 24);
+        pltN.fillStyle(0x9c27b0); pltN.fillRect(0, 0, 64, 5);
+        pltN.lineStyle(1, 0xce93d8, 0.9); pltN.strokeRect(0, 0, 64, 24);
+        pltN.generateTexture('platform_neon', 64, 24); pltN.destroy();
+
+        // Zone 3: Volcanic Depths
+        const gndV = this.make.graphics({ x: 0, y: 0, add: false });
+        gndV.fillStyle(0x1a0500); gndV.fillRect(0, 0, 64, 32);
+        gndV.fillStyle(0x6d1500); gndV.fillRect(0, 0, 64, 8);
+        gndV.fillStyle(0xff5722); gndV.fillRect(0, 0, 64, 3);
+        gndV.fillStyle(0xff8c00); gndV.fillRect(0, 3, 64, 1);
+        gndV.lineStyle(1, 0x4a1500, 0.6); gndV.strokeRect(0, 0, 64, 32);
+        gndV.generateTexture('ground_volcanic', 64, 32); gndV.destroy();
+
+        const pltV = this.make.graphics({ x: 0, y: 0, add: false });
+        pltV.fillStyle(0x2d0a00); pltV.fillRect(0, 0, 64, 24);
+        pltV.fillStyle(0xbf360c); pltV.fillRect(0, 0, 64, 5);
+        pltV.lineStyle(1, 0xff7043, 0.9); pltV.strokeRect(0, 0, 64, 24);
+        pltV.generateTexture('platform_volcanic', 64, 24); pltV.destroy();
+
+        // Zone 4: The Void
+        const gndVo = this.make.graphics({ x: 0, y: 0, add: false });
+        gndVo.fillStyle(0x050510); gndVo.fillRect(0, 0, 64, 32);
+        gndVo.fillStyle(0x1a0840); gndVo.fillRect(0, 0, 64, 8);
+        gndVo.fillStyle(0x7c4dff); gndVo.fillRect(0, 0, 64, 3);
+        gndVo.fillStyle(0xb388ff); gndVo.fillRect(0, 3, 64, 1);
+        gndVo.lineStyle(1, 0x3d1a6e, 0.6); gndVo.strokeRect(0, 0, 64, 32);
+        gndVo.generateTexture('ground_void', 64, 32); gndVo.destroy();
+
+        const pltVo = this.make.graphics({ x: 0, y: 0, add: false });
+        pltVo.fillStyle(0x0a0520); pltVo.fillRect(0, 0, 64, 24);
+        pltVo.fillStyle(0x4527a0); pltVo.fillRect(0, 0, 64, 5);
+        pltVo.lineStyle(1, 0x7c4dff, 1.0); pltVo.strokeRect(0, 0, 64, 24);
+        pltVo.generateTexture('platform_void', 64, 24); pltVo.destroy();
+
         // Agent portrait card backgrounds
         const agents = [
             { key: 'card_jett',   bg: 0x0a1a26, border: 0x4fc3f7 },

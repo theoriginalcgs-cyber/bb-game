@@ -5,7 +5,7 @@ import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
 
 const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm'];
-const ROOM_W  = 1800;
+const ROOM_W  = 1280;
 const GROUND_Y = 648;
 
 const CURSES = [
@@ -89,8 +89,7 @@ export default class GameScene extends Phaser.Scene {
         this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
         this.player.setControls(this.cursors, this.wasd);
-        this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
-        this.cameras.main.setDeadzone(220, 120);
+        this.cameras.main.startFollow(this.player, true, 0.4, 0.4);
 
         this.physics.add.collider(this.player,       this.groundGroup);
         this.physics.add.collider(this.enemyGroup,   this.groundGroup);
@@ -298,9 +297,27 @@ export default class GameScene extends Phaser.Scene {
 
         this.roomDone = false;
 
+        // Lock camera to this room only — arena feel, no wide side-scroll
         const newW = (roomIndex + 1) * ROOM_W;
         this.physics.world.setBounds(0, 0, newW, this.scale.height);
-        this.cameras.main.setBounds(0, 0, newW, this.scale.height);
+        this.cameras.main.setBounds(startX, 0, ROOM_W, this.scale.height);
+
+        // Zone transition announcement
+        const zone     = Math.floor((this.floor - 1) / 10);
+        const prevZone = this.floor > 1 ? Math.floor((this.floor - 2) / 10) : 0;
+        if (zone > 0 && zone !== prevZone) {
+            const ZONE_NAMES  = ['', 'NEON DISTRICT', 'VOLCANIC DEPTHS', 'THE VOID'];
+            const ZONE_COLORS = ['', '#ce93d8',       '#ff7043',         '#7c4dff'];
+            const name  = ZONE_NAMES[Math.min(zone,  ZONE_NAMES.length  - 1)];
+            const color = ZONE_COLORS[Math.min(zone, ZONE_COLORS.length - 1)];
+            this.time.delayedCall(600, () => {
+                const txt = this.add.text(this.scale.width / 2, 200, `ENTERING  ${name}`, {
+                    fontSize: '26px', color, fontStyle: 'bold', letterSpacing: 5,
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
+                this.cameras.main.flash(600, 255, 255, 255);
+                this.tweens.add({ targets: txt, alpha: 0, y: 160, duration: 3200, delay: 800, onComplete: () => txt.destroy() });
+            });
+        }
     }
 
     spawnBoss(x, y) {
@@ -584,7 +601,7 @@ export default class GameScene extends Phaser.Scene {
     _spawnViperArena(startX) {
         const tileW = 64;
         const wallL = startX + 32;
-        const wallR = startX + 1600;
+        const wallR = startX + ROOM_W - 32;
 
         // ── Toxic domain background ──
         const viperBg = this.add.tileSprite(

@@ -1,22 +1,28 @@
 export default class LevelGenerator {
     static generate(scene, groundGroup, platformGroup, roomIndex, roomStartX, floor = 1) {
-        const ROOM_W  = 1800;
+        const ROOM_W   = 1280;
         const GROUND_Y = 648;
         const roomEndX = roomStartX + ROOM_W;
         const tileW    = 64;
         const difficulty = Math.floor(roomIndex / 3) + 1;
+        const zone = Math.floor((floor - 1) / 10);
+
+        const GROUND_KEYS   = ['ground',   'ground_neon',   'ground_volcanic',   'ground_void'];
+        const PLATFORM_KEYS = ['platform', 'platform_neon', 'platform_volcanic', 'platform_void'];
+        const groundKey = GROUND_KEYS[Math.min(zone, GROUND_KEYS.length - 1)];
+        const platKey   = PLATFORM_KEYS[Math.min(zone, PLATFORM_KEYS.length - 1)];
 
         for (let x = roomStartX; x < roomEndX + tileW; x += tileW) {
-            const t1 = groundGroup.create(x + tileW / 2, GROUND_Y + 16, 'ground');
+            const t1 = groundGroup.create(x + tileW / 2, GROUND_Y + 16, groundKey);
             t1.setImmovable(true); t1.refreshBody();
-            const t2 = groundGroup.create(x + tileW / 2, GROUND_Y + 48, 'ground');
+            const t2 = groundGroup.create(x + tileW / 2, GROUND_Y + 48, groundKey);
             t2.setImmovable(true); t2.refreshBody();
         }
 
-        const platforms = LevelGenerator.makePlatforms(roomStartX, roomEndX, GROUND_Y, difficulty);
+        const platforms = LevelGenerator.makePlatforms(roomStartX, roomEndX, GROUND_Y, difficulty, zone);
         platforms.forEach(({ x, y, cols }) => {
             for (let c = 0; c < cols; c++) {
-                const tile = platformGroup.create(x + c * tileW + tileW / 2, y + 12, 'platform');
+                const tile = platformGroup.create(x + c * tileW + tileW / 2, y + 12, platKey);
                 tile.setImmovable(true);
                 tile.refreshBody();
             }
@@ -25,14 +31,23 @@ export default class LevelGenerator {
         return LevelGenerator.makeEnemySpawns(roomStartX, roomEndX, GROUND_Y, platforms, difficulty, roomIndex, floor);
     }
 
-    static makePlatforms(startX, endX, groundY, difficulty) {
+    static makePlatforms(startX, endX, groundY, difficulty, zone = 0) {
         const platforms = [];
         const tileW    = 64;
-        const count    = Phaser.Math.Between(3, 4 + Math.min(difficulty, 2));
-        const MIN_H    = 80;   // horizontal buffer for proximity check
-        const MAX_STEP = 180;  // max vertical gap jumpable by every agent
-        const MIN_STEP = 75;   // min height to be a useful platform
-        const MAX_HEIGHT = 320; // absolute ceiling above ground
+        const MIN_H    = 80;
+        const MAX_STEP = 180;
+        const MIN_STEP = 75;
+
+        // Zone-specific feel: denser/lower in early zones, sparse/high in late zones
+        const zoneCfg = [
+            { countMin: 3, countMax: 4 + Math.min(difficulty, 2), maxH: 310, colMin: 2, colMax: 4 }, // Industrial
+            { countMin: 4, countMax: 6,                           maxH: 330, colMin: 2, colMax: 4 }, // Neon (dense)
+            { countMin: 3, countMax: 5,                           maxH: 360, colMin: 2, colMax: 3 }, // Volcanic (tall)
+            { countMin: 2, countMax: 4,                           maxH: 400, colMin: 2, colMax: 3 }, // Void (sparse, very high)
+        ];
+        const cfg      = zoneCfg[Math.min(zone, zoneCfg.length - 1)];
+        const count    = Phaser.Math.Between(cfg.countMin, cfg.countMax);
+        const MAX_HEIGHT = cfg.maxH;
 
         // Build a staircase of heights so every platform is reachable via a chain.
         // Each step ≤ MAX_STEP, so when heights are sorted the gaps are always jumpable.
@@ -58,7 +73,7 @@ export default class LevelGenerator {
 
         for (let i = 0; i < heightsAboveGround.length; i++) {
             const y    = groundY - heightsAboveGround[i];
-            const cols = Phaser.Math.Between(2, 4);
+            const cols = Phaser.Math.Between(cfg.colMin, cfg.colMax);
             const platW = cols * tileW;
             const zoneX = startX + 100 + i * zoneW;
             const minX  = zoneX + 20;
@@ -128,7 +143,7 @@ export default class LevelGenerator {
     }
 
     static generateBossRoom(scene, groundGroup, platformGroup, roomIndex, startX, bossType) {
-        const ROOM_W   = 1800;
+        const ROOM_W   = 1280;
         const GROUND_Y = 648;
         const roomEndX = startX + ROOM_W;
         const tileW    = 64;
@@ -152,41 +167,39 @@ export default class LevelGenerator {
 
         switch (bossType) {
             case 'viper':
-                // No platforms — open arena for toxic pool gameplay
+                // Open arena — toxic pool gameplay
                 break;
             default:
             case 'blaze':
-                P(startX + 160,          GROUND_Y - 160, 3);
-                P(startX + ROOM_W - 352, GROUND_Y - 160, 3);
-                P(cx - 160,              GROUND_Y - 280, 5);
-                P(cx - 64,               GROUND_Y - 420, 2);
+                P(startX + 100,          GROUND_Y - 160, 3);
+                P(startX + ROOM_W - 292, GROUND_Y - 160, 3);
+                P(cx - 96,               GROUND_Y - 290, 4);
+                P(cx - 64,               GROUND_Y - 430, 2);
                 break;
             case 'phantom':
-                P(startX + 120,          GROUND_Y - 170, 3);
-                P(startX + 400,          GROUND_Y - 300, 3);
-                P(startX + 680,          GROUND_Y - 200, 3);
-                P(cx - 96,               GROUND_Y - 370, 3);
-                P(cx + 200,              GROUND_Y - 250, 3);
-                P(startX + ROOM_W - 560, GROUND_Y - 170, 3);
-                P(startX + ROOM_W - 280, GROUND_Y - 310, 3);
+                P(startX + 100,          GROUND_Y - 170, 3);
+                P(startX + 300,          GROUND_Y - 300, 3);
+                P(startX + 500,          GROUND_Y - 190, 3);
+                P(cx - 64,               GROUND_Y - 370, 3);
+                P(cx + 128,              GROUND_Y - 250, 3);
+                P(startX + ROOM_W - 484, GROUND_Y - 300, 3);
                 break;
             case 'titan':
-                P(startX + 160,          GROUND_Y - 200, 2);
-                P(startX + 160,          GROUND_Y - 360, 2);
-                P(startX + 160,          GROUND_Y - 490, 2);
-                P(startX + ROOM_W - 288, GROUND_Y - 200, 2);
-                P(startX + ROOM_W - 288, GROUND_Y - 360, 2);
-                P(startX + ROOM_W - 288, GROUND_Y - 490, 2);
+                P(startX + 100,          GROUND_Y - 200, 2);
+                P(startX + 100,          GROUND_Y - 360, 2);
+                P(startX + 100,          GROUND_Y - 490, 2);
+                P(startX + ROOM_W - 228, GROUND_Y - 200, 2);
+                P(startX + ROOM_W - 228, GROUND_Y - 360, 2);
+                P(startX + ROOM_W - 228, GROUND_Y - 490, 2);
                 break;
             case 'storm':
-                P(startX + 180,          GROUND_Y - 160, 2);
-                P(startX + 420,          GROUND_Y - 310, 2);
-                P(startX + 660,          GROUND_Y - 460, 2);
+                P(startX + 120,          GROUND_Y - 160, 2);
+                P(startX + 300,          GROUND_Y - 310, 2);
+                P(startX + 480,          GROUND_Y - 460, 2);
                 P(cx - 64,               GROUND_Y - 260, 3);
-                P(cx + 120,              GROUND_Y - 430, 2);
-                P(startX + ROOM_W - 540, GROUND_Y - 310, 2);
-                P(startX + ROOM_W - 300, GROUND_Y - 160, 2);
-                P(startX + ROOM_W - 420, GROUND_Y - 480, 2);
+                P(cx + 96,               GROUND_Y - 430, 2);
+                P(startX + ROOM_W - 428, GROUND_Y - 310, 2);
+                P(startX + ROOM_W - 248, GROUND_Y - 160, 2);
                 break;
         }
 
