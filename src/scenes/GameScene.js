@@ -114,9 +114,18 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.overlap(this.playerBullets, this.enemyGroup, (bullet, enemy) => {
-            const ls = bullet.isLifeSteal;
+            const ls    = bullet.isLifeSteal;
+            const isIce = bullet.isIceOrb;
             bullet.destroy();
             enemy.hit(bullet.damage || 20, ls);
+            if (isIce) enemy.applySlowEffect(3000);
+        });
+
+        this.physics.add.overlap(this.playerBullets, this.toxicPools, (bullet, pool) => {
+            if (bullet.isFireball && bullet.fireballLevel >= 2) {
+                bullet.destroy();
+                pool.destroy();
+            }
         });
 
         this.physics.add.overlap(this.enemyBullets, this.player, (player, bullet) => {
@@ -183,6 +192,8 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('dropHealth',    this.onDropHealth,     this);
         this.events.on('dropPowerup',   this.onDropPowerup,    this);
         this.events.on('enemyDied',     this.onEnemyDied,      this);
+        this.events.on('dashDamage',    this.onDashDamage,     this);
+        this.events.on('spawnIceOrb',   this.onSpawnIceOrb,    this);
         this.events.on('bossKilled',    () => this.bossMusic.stop(), this);
         this.events.on('lifeStealKill', (amt) => this.player.gainHp(amt), this);
         this.events.on('hpChanged',     (hp)  => this.registry.set('playerHp', hp), this);
@@ -385,15 +396,37 @@ export default class GameScene extends Phaser.Scene {
         this.enemyGroup.add(e);
     }
 
-    onSpawnFireball(x, y, dir) {
+    onSpawnFireball(x, y, dir, level = 0) {
         const fb = this.playerBullets.create(x, y, 'fireball');
         if (!fb) return;
         fb.setVelocityX(dir * 520);
         fb.setGravityY(-900);
-        fb.damage = 50;
-        fb.isLifeSteal = false;
-        fb.setScale(1.3);
+        fb.damage        = level >= 1 ? 75 : 50;
+        fb.isLifeSteal   = false;
+        fb.isFireball    = true;
+        fb.fireballLevel = level;
+        fb.setScale(level >= 1 ? 2.0 : 1.3);
         this.time.delayedCall(1800, () => { if (fb && fb.active) fb.destroy(); });
+    }
+
+    onSpawnIceOrb(x, y, dir) {
+        const orb = this.playerBullets.create(x, y, 'slow_orb');
+        if (!orb) return;
+        orb.setVelocityX(dir * 480);
+        orb.setGravityY(-900);
+        orb.damage     = 15;
+        orb.isIceOrb   = true;
+        orb.isLifeSteal = false;
+        this.time.delayedCall(2000, () => { if (orb && orb.active) orb.destroy(); });
+    }
+
+    onDashDamage(dir) {
+        this.enemyGroup.getChildren().forEach(enemy => {
+            if (!enemy.active) return;
+            const dx   = enemy.x - this.player.x;
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+            if (dist < 120 && (dir > 0 ? dx > 0 : dx < 0)) enemy.hit(40, false);
+        });
     }
 
     onViperPitStart() {
@@ -509,13 +542,26 @@ export default class GameScene extends Phaser.Scene {
 
     openUpgradeScreen() {
         this.showingUpgrade = true;
-        this.scene.launch('UpgradeScene', { floor: this.floor });
+        const isBossFloor = this.floor % 10 === 0;
+        if (isBossFloor && this.player.abilityLevel < 2) {
+            this.scene.launch('AbilityUpgradeScene', {
+                agentKey:     this.agentKey,
+                abilityLevel: this.player.abilityLevel + 1,
+            });
+        } else {
+            this.scene.launch('UpgradeScene', { floor: this.floor });
+        }
         this.scene.pause();
     }
 
     onSceneResumed() {
-        const upgradeId = this.registry.get('pickedUpgrade');
-        if (upgradeId) {
+        const abilityLevel = this.registry.get('pickedAbilityLevel');
+        const upgradeId    = this.registry.get('pickedUpgrade');
+
+        if (abilityLevel != null) {
+            this.registry.set('pickedAbilityLevel', null);
+            this._applyAbilityUpgrade(abilityLevel);
+        } else if (upgradeId) {
             this.registry.set('pickedUpgrade', null);
             this.player.applyUpgrade(upgradeId);
             this.registry.set('playerMaxHp', this.player.maxHp);
@@ -523,6 +569,16 @@ export default class GameScene extends Phaser.Scene {
         }
         this.showingUpgrade = false;
         this.advanceRoom();
+    }
+
+    _applyAbilityUpgrade(level) {
+        this.player.abilityLevel = level;
+        if (this.agentKey === 'jett' && level === 2 && !this.jettDaggers) {
+            this.jettDaggers = [];
+            for (let i = 0; i < 3; i++) {
+                this.jettDaggers.push(this.add.image(this.player.x, this.player.y, 'jett_dagger'));
+            }
+        }
     }
 
     _spawnViperArena(startX) {
@@ -659,6 +715,22 @@ export default class GameScene extends Phaser.Scene {
 
         if (this.player.y > this.scale.height + 50) {
             this.player.takeDamage(999);
+        }
+
+        if (this.jettDaggers && this.player.active) {
+            const t = time / 600;
+            this.jettDaggers.forEach((dagger, i) => {
+                const angle = t + (i * Math.PI * 2 / 3);
+                dagger.x = this.player.x + Math.cos(angle) * 55;
+                dagger.y = this.player.y + Math.sin(angle) * 40;
+                dagger.setRotation(angle);
+                this.enemyBullets.getChildren().forEach(bullet => {
+                    if (bullet.active &&
+                        Phaser.Math.Distance.Between(dagger.x, dagger.y, bullet.x, bullet.y) < 22) {
+                        bullet.destroy();
+                    }
+                });
+            });
         }
 
         // Viper's Pit decay — 3% of max HP per tick, floors at 1, never kills on its own

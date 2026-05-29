@@ -4,6 +4,7 @@ import GameScene from './scenes/GameScene.js';
 import UIScene from './scenes/UIScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import UpgradeScene from './scenes/UpgradeScene.js';
+import AbilityUpgradeScene from './scenes/AbilityUpgradeScene.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -17,7 +18,7 @@ const config = {
             debug: false,
         },
     },
-    scene: [BootScene, MenuScene, GameScene, UIScene, GameOverScene, UpgradeScene],
+    scene: [BootScene, MenuScene, GameScene, UIScene, GameOverScene, UpgradeScene, AbilityUpgradeScene],
 };
 
 new Phaser.Game(config);

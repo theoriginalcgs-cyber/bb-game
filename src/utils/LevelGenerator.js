@@ -197,14 +197,39 @@ export default class LevelGenerator {
         if (roomIndex === 0) return 'guard';
         const r = Math.random();
 
-        // New types unlock at higher floors
-        if (floor >= 12 && difficulty >= 3) {
-            if (r < 0.07) return 'spawner';
-            if (r < 0.22) return 'shielded';
-        } else if (floor >= 8) {
-            if (r < 0.18) return 'shielded';
+        // Each tier uses its own probability table so thresholds don't collide
+        if (floor >= 30) {
+            if (r < 0.12) return 'vampire';
+            if (r < 0.22) return 'juggernaut';
+            if (r < 0.36) return 'berserker';
+            if (r < 0.44) return 'spawner';
+            if (r < 0.58) return 'shielded';
+            if (r < 0.72) return 'sniper';
+            if (r < 0.86) return 'runner';
+            return 'guard';
+        }
+        if (floor >= 20) {
+            if (r < 0.14) return 'juggernaut';
+            if (r < 0.30) return 'berserker';
+            if (r < 0.40) return 'spawner';
+            if (r < 0.54) return 'shielded';
+            if (r < 0.68) return 'sniper';
+            if (r < 0.82) return 'runner';
+            return 'guard';
+        }
+        if (floor >= 10) {
+            if (r < 0.20) return 'berserker';
+            if (r < 0.32) return 'shielded';
+            if (r < 0.40) return 'spawner';
+            if (r < 0.56) return 'sniper';
+            if (r < 0.76) return 'runner';
+            return 'guard';
         }
 
+        // Original logic for floors 1-9
+        if (floor >= 8) {
+            if (r < 0.18) return 'shielded';
+        }
         if (difficulty === 1) return r < 0.75 ? 'guard' : 'runner';
         if (difficulty === 2) return r < 0.4  ? 'guard' : r < 0.7 ? 'runner' : 'sniper';
         return r < 0.33 ? 'guard' : r < 0.66 ? 'runner' : 'sniper';

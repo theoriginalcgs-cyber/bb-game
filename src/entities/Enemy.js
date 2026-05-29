@@ -1,12 +1,15 @@
 export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, type, floor = 1, isElite = false) {
         const textures = {
-            guard:    'enemy_guard',
-            sniper:   'enemy_sniper',
-            runner:   'enemy_runner',
-            shielded: 'enemy_shielded',
-            spawner:  'enemy_spawner',
-            miniboss: 'enemy_miniboss',
+            guard:      'enemy_guard',
+            sniper:     'enemy_sniper',
+            runner:     'enemy_runner',
+            shielded:   'enemy_shielded',
+            spawner:    'enemy_spawner',
+            miniboss:   'enemy_miniboss',
+            berserker:  'enemy_berserker',
+            juggernaut: 'enemy_juggernaut',
+            vampire:    'enemy_vampire',
         };
         super(scene, x, y, textures[type] || 'enemy_guard');
         scene.add.existing(this);
@@ -21,7 +24,10 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             runner:   { hp: 35,  speed: 230, damage: 10, range: 38,  attackCd: 750  },
             shielded: { hp: 80,  speed: 90,  damage: 16, range: 46,  attackCd: 1100 },
             spawner:  { hp: 200, speed: 0,   damage: 0,  range: 0,   attackCd: 99999 },
-            miniboss: { hp: 320, speed: 105, damage: 28, range: 56,  attackCd: 900  },
+            miniboss:   { hp: 320, speed: 105, damage: 28, range: 56,  attackCd: 900  },
+            berserker:  { hp: 50,  speed: 275, damage: 18, range: 42,  attackCd: 700  },
+            juggernaut: { hp: 260, speed: 65,  damage: 32, range: 60,  attackCd: 1600 },
+            vampire:    { hp: 90,  speed: 145, damage: 22, range: 46,  attackCd: 1100 },
         };
 
         const s = stats[type] || stats.guard;
@@ -74,6 +80,19 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             if (!isElite) this.setTint(0xff4400);
         }
 
+        if (type === 'berserker') {
+            this.chargeTimer    = Phaser.Math.Between(2200, 3800);
+            this.charging       = false;
+            this.chargeDuration = 0;
+            if (!isElite) this.setTint(0xff4400);
+        }
+
+        if (type === 'juggernaut') {
+            this.armorMod = Math.min(this.armorMod, 0.55);
+            this.setScale(1.5);
+            if (!isElite) this.setTint(0x888888);
+        }
+
         this.hpBar = scene.add.graphics();
         this.drawHpBar();
     }
@@ -116,7 +135,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         const speedMult = this.slowed ? 0.35 : 1;
 
         this.setFlipX(player.x < this.x);
-        this.attackCd = Math.max(0, this.attackCd - delta);
+        this.attackCd = Math.max(0, this.attackCd - delta * (this.slowed ? 0.4 : 1));
         this.jumpCd   = Math.max(0, this.jumpCd   - delta);
 
         if (this.slowed) {
@@ -132,6 +151,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             case 'runner':
             case 'shielded':
             case 'miniboss':
+            case 'juggernaut':
                 if (dist > this.attackRange + 10) {
                     const dir = player.x > this.x ? 1 : -1;
                     this.setVelocityX(dir * this.moveSpeed * speedMult);
@@ -160,6 +180,69 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                     this.fireAt(player, enemyBullets);
                 }
                 break;
+
+            case 'berserker': {
+                if (dist > this.attackRange + 10) {
+                    const dir = player.x > this.x ? 1 : -1;
+                    this.chargeTimer -= delta;
+                    if (!this.charging && this.chargeTimer <= 0) {
+                        this.charging       = true;
+                        this.chargeDuration = 550;
+                        this.chargeTimer    = Phaser.Math.Between(2200, 3800);
+                        if (!this.slowed) this.setTint(0xff8800);
+                    }
+                    if (this.charging) {
+                        this.chargeDuration -= delta;
+                        if (this.chargeDuration <= 0) {
+                            this.charging = false;
+                            if (!this.slowed) this._restoreTypeTint();
+                        }
+                    }
+                    const spd = (this.charging ? this.moveSpeed * 2.2 : this.moveSpeed) * speedMult;
+                    this.setVelocityX(dir * spd);
+                    if (this.body.blocked.down && this.jumpCd <= 0) {
+                        const playerAbove  = player.y < this.y - 70;
+                        const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                        if (playerAbove || blockedHoriz) {
+                            this.setVelocityY(-760);
+                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                        }
+                    }
+                } else {
+                    this.setVelocityX(0);
+                    if (this.attackCd <= 0) {
+                        this.attackCd = this.attackCdMax;
+                        player.takeDamage(this.damage);
+                    }
+                }
+                break;
+            }
+
+            case 'vampire': {
+                if (dist > this.attackRange + 10) {
+                    const dir = player.x > this.x ? 1 : -1;
+                    this.setVelocityX(dir * this.moveSpeed * speedMult);
+                    if (this.body.blocked.down && this.jumpCd <= 0) {
+                        const playerAbove  = player.y < this.y - 70;
+                        const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                        if (playerAbove || blockedHoriz) {
+                            this.setVelocityY(-760);
+                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                        }
+                    }
+                } else {
+                    this.setVelocityX(0);
+                    if (this.attackCd <= 0) {
+                        this.attackCd = this.attackCdMax;
+                        player.takeDamage(this.damage);
+                        const drain = Math.round(this.damage * 0.3);
+                        this.hp = Math.min(this.hp + drain, this.maxHp);
+                        this._floatText(`+${drain}`, '#ff66cc');
+                        this.drawHpBar();
+                    }
+                }
+                break;
+            }
 
             case 'spawner':
                 this.setVelocityX(0);
@@ -241,7 +324,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     _restoreTypeTint() {
         if (!this.active) return;
         if (this.enemyType === 'shielded' && this.shieldHp > 0) this.setTint(0x0088ff);
-        else if (this.enemyType === 'miniboss') this.setTint(0xff4400);
+        else if (this.enemyType === 'miniboss')   this.setTint(0xff4400);
+        else if (this.enemyType === 'berserker')  this.setTint(0xff4400);
+        else if (this.enemyType === 'juggernaut') this.setTint(0x888888);
         else this.clearTint();
     }
 

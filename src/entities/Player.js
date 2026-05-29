@@ -60,6 +60,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this._powerupInvincible = false;
         this._unlimitedJumps    = false;
         this.shieldHp           = 0;
+        this.abilityLevel       = 0;
     }
 
     setControls(cursors, wasd) {
@@ -225,11 +226,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setVelocityY(-180);
         this.setTint(0x4fc3f7);
         this.scene.time.delayedCall(280, () => { if (this.active) this.clearTint(); });
+
+        if (this.abilityLevel >= 1) {
+            this.invincible = true;
+            this.scene.events.emit('dashDamage', dir);
+            this.scene.time.delayedCall(300, () => { if (this.active) this.invincible = false; });
+        }
     }
 
     fireballAbility() {
         const dir = this.flipX ? -1 : 1;
-        this.scene.events.emit('spawnFireball', this.x + dir * 20, this.y - 10, dir);
+        this.scene.events.emit('spawnFireball', this.x + dir * 20, this.y - 10, dir, this.abilityLevel);
     }
 
     healAbility() {
@@ -237,6 +244,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.hp = Math.min(this.hp + amount, this.maxHp);
         this.scene.events.emit('hpChanged', this.hp);
         this.floatText(`+${amount} HP`, '#66bb6a');
+
+        if (this.abilityLevel >= 1) {
+            const dir = this.flipX ? -1 : 1;
+            this.scene.events.emit('spawnIceOrb', this.x + dir * 20, this.y - 10, dir);
+        }
+        if (this.abilityLevel >= 2) {
+            this.shieldHp = Math.min(this.shieldHp + 2, 8);
+            this.floatText('ICE SHIELD!', '#66bbff');
+        }
     }
 
     devourAbility() {
@@ -245,6 +261,22 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setTint(0xce93d8);
         this.scene.time.delayedCall(5000, () => { if (this.active) this.clearTint(); });
         this.floatText('DEVOUR!', '#ce93d8');
+
+        if (this.abilityLevel >= 1) {
+            const prev = this.attackCdMax;
+            this.attackCdMax = Math.max(60, Math.round(this.attackCdMax * 0.5));
+            this.scene.time.delayedCall(5000, () => { if (this.active) this.attackCdMax = prev; });
+        }
+        if (this.abilityLevel >= 2) {
+            this.speed += 60;
+            this._powerupInvincible = true;
+            this.scene.time.delayedCall(1500, () => {
+                if (this.active) {
+                    this._powerupInvincible = false;
+                    this.speed = Math.max(0, this.speed - 60);
+                }
+            });
+        }
     }
 
     takeDamage(amount) {

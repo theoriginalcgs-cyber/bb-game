@@ -343,6 +343,9 @@ export default class BootScene extends Phaser.Scene {
         this._drawShielded();
         this._drawSpawner();
         this._drawMiniBoss();
+        this._drawBerserker();
+        this._drawJuggernaut();
+        this._drawVampire();
     }
 
     // ── GUARD — armoured sentinel with sword and buckler ──────────
@@ -780,6 +783,192 @@ export default class BootScene extends Phaser.Scene {
         g.fillRect(50,38,  4, 16);    // handle
 
         g.generateTexture('enemy_miniboss', 56, 72);
+        g.destroy();
+    }
+
+    // ── BERSERKER — feral charger, bare arms, tribal rage ────────
+    _drawBerserker() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const skin = 0xc84020, body = 0x6e1a00, dark = 0x3a0a00;
+        const eyes = 0xff2200, hair = 0x1a0000, mark = 0xff6600;
+
+        // Wild spiked hair
+        g.fillStyle(hair);
+        g.fillRect(4,  0,  4, 5);
+        g.fillRect(10, 0,  4, 7);
+        g.fillRect(16, 0,  4, 5);
+        g.fillRect(22, 0,  4, 6);
+        g.fillRect(28, 0,  4, 4);
+        g.fillRect(4,  3, 28, 8);
+        // Head
+        g.fillStyle(skin);
+        g.fillRect(6,  8, 24, 16);
+        g.fillRect(4, 12,  3, 8);
+        g.fillRect(29,12,  3, 8);
+        // Eyes (glowing red)
+        g.fillStyle(eyes);
+        g.fillRect(8, 13, 8, 4);
+        g.fillRect(20,13, 8, 4);
+        g.fillStyle(0xff8866);
+        g.fillRect(9, 14, 4, 2);
+        g.fillRect(21,14, 4, 2);
+        // Snarl
+        g.fillStyle(dark);
+        g.fillRect(9, 20, 18, 3);
+        g.fillStyle(0xffffff);
+        g.fillRect(10,20, 3, 2); g.fillRect(15,19, 3, 2); g.fillRect(22,20, 3, 2);
+        // Neck + tribal mark
+        g.fillStyle(skin);
+        g.fillRect(14,24, 8, 4);
+        g.fillStyle(mark);
+        g.fillRect(12,26, 12, 2);
+        // Muscular torso
+        g.fillStyle(body);
+        g.fillRect(6, 27, 24, 22);
+        g.fillStyle(dark);
+        g.fillRect(6, 27, 24, 4);
+        // Tribal markings on chest
+        g.fillStyle(mark);
+        g.fillRect(8, 32, 4, 10); g.fillRect(24,32, 4, 10);
+        g.fillRect(14,36, 8, 2);
+        // Belt
+        g.fillStyle(dark);
+        g.fillRect(6, 46, 24, 4);
+        // Bare arms (muscular)
+        g.fillStyle(skin);
+        g.fillRect(0, 27, 7, 22);
+        g.fillRect(29,27, 7, 22);
+        // Clawed hands
+        g.fillStyle(0xdddddd);
+        g.fillRect(0, 47, 3, 5); g.fillRect(4, 49, 3, 4);
+        g.fillRect(29,47, 3, 5); g.fillRect(33,49, 3, 4);
+        // Legs
+        g.fillStyle(body);
+        g.fillRect(7, 50, 9, 14);
+        g.fillRect(20,50, 9, 14);
+        g.fillStyle(dark);
+        g.fillRect(6, 58, 11, 6); g.fillRect(19,58, 11, 6);
+
+        g.generateTexture('enemy_berserker', 36, 64);
+        g.destroy();
+    }
+
+    // ── JUGGERNAUT — iron colossus, massive plate, no neck ────────
+    _drawJuggernaut() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const plate = 0x2a2a2a, plateL = 0x484848;
+        const metal = 0x606060, metalL = 0x909090;
+        const visor = 0xff3300, dark   = 0x111111;
+
+        // Full enclosing helmet — no face visible
+        g.fillStyle(plate);
+        g.fillRect(8,  0, 40, 28);
+        g.fillStyle(plateL);
+        g.fillRect(8,  0, 40, 6);
+        // Visor slit (single glowing line)
+        g.fillStyle(dark);
+        g.fillRect(10,10, 36, 10);
+        g.fillStyle(visor);
+        g.fillRect(12,13, 32,  4);
+        g.fillStyle(0xff8866);
+        g.fillRect(14,14, 28,  2);
+        // Gorget
+        g.fillStyle(plate);
+        g.fillRect(18,28, 20,  4);
+        // Enormous pauldrons
+        g.fillStyle(plateL);
+        g.fillRect(0, 22, 18, 18); g.fillRect(38,22, 18, 18);
+        g.fillStyle(metal);
+        g.fillRect(0, 22, 18,  4); g.fillRect(38,22, 18,  4);
+        // Thick breastplate
+        g.fillStyle(plate);
+        g.fillRect(12,30, 32, 32);
+        g.fillStyle(plateL);
+        g.fillRect(12,30, 32,  6);
+        g.fillStyle(metalL);
+        g.fillRect(26,36,  4, 22);
+        g.fillRect(14,42, 10,  4); g.fillRect(32,42, 10,  4);
+        // Belt
+        g.fillStyle(dark);
+        g.fillRect(12,59, 32,  5);
+        g.fillStyle(metalL);
+        g.fillRect(24,59,  8,  5);
+        // Thick arms
+        g.fillStyle(plate);
+        g.fillRect(2, 36, 12, 26);
+        g.fillRect(42,36, 12, 26);
+        g.fillStyle(metal);
+        g.fillRect(2, 58, 12,  6); g.fillRect(42,58, 12,  6);
+        // Short wide legs
+        g.fillStyle(plate);
+        g.fillRect(14,64, 14, 14);
+        g.fillRect(28,64, 14, 14);
+        g.fillStyle(dark);
+        g.fillRect(12,72, 18,  6); g.fillRect(26,72, 18,  6);
+
+        g.generateTexture('enemy_juggernaut', 56, 78);
+        g.destroy();
+    }
+
+    // ── VAMPIRE — pale predator, cape, glowing red eyes ──────────
+    _drawVampire() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const skin = 0xe8d8e8, hair = 0x1a0025, suit = 0x2d0040;
+        const cape = 0x1a0033, acc  = 0x9933cc, eyes = 0xff0033;
+
+        // Slicked-back hair
+        g.fillStyle(hair);
+        g.fillRect(10, 0, 24, 10);
+        g.fillRect(8,  4,  4, 8); g.fillRect(32, 4,  4, 8);
+        // Pale face
+        g.fillStyle(skin);
+        g.fillRect(12, 8, 20, 18);
+        g.fillRect(10,12,  3, 7); g.fillRect(31,12,  3, 7);
+        // Glowing red eyes
+        g.fillStyle(eyes);
+        g.fillRect(14,13, 7, 4); g.fillRect(23,13, 7, 4);
+        g.fillStyle(0xff6688);
+        g.fillRect(15,14, 4, 2); g.fillRect(24,14, 4, 2);
+        // Aristocratic nose + fanged smirk
+        g.fillStyle(0xd0c0d0);
+        g.fillRect(20,19, 4, 2);
+        g.fillStyle(0xb090b0);
+        g.fillRect(16,22, 12, 2);
+        g.fillStyle(0xffffff);
+        g.fillRect(17,22, 2, 3); g.fillRect(25,22, 2, 3);
+        // Neck
+        g.fillStyle(skin);
+        g.fillRect(18,26, 8, 4);
+        // Wide cape behind body
+        g.fillStyle(cape);
+        g.fillRect(4, 28, 36, 40);
+        g.fillRect(2, 32,  4, 34); g.fillRect(38,32,  4, 34);
+        // Elegant suit
+        g.fillStyle(suit);
+        g.fillRect(12,29, 20, 22);
+        g.fillStyle(acc);
+        g.fillRect(12,29, 20,  4);
+        g.fillRect(19,33,  2, 14); g.fillRect(23,33,  2, 14);
+        // White shirt detail
+        g.fillStyle(0xffffff);
+        g.fillRect(20,34,  4, 10);
+        g.fillStyle(0xdddddd);
+        g.fillRect(14,37,  4,  3); g.fillRect(26,37,  4,  3);
+        // Belt
+        g.fillStyle(hair);
+        g.fillRect(12,48, 20,  3);
+        // Arms (cape-covered, elegant)
+        g.fillStyle(suit);
+        g.fillRect(5, 30,  8, 22); g.fillRect(31,30,  8, 22);
+        g.fillStyle(skin);
+        g.fillRect(5, 50,  8,  6); g.fillRect(31,50,  8,  6);
+        // Legs
+        g.fillStyle(cape);
+        g.fillRect(12,51, 10, 18); g.fillRect(22,51, 10, 18);
+        g.fillStyle(hair);
+        g.fillRect(11,62, 12,  6); g.fillRect(21,62, 12,  6);
+
+        g.generateTexture('enemy_vampire', 44, 68);
         g.destroy();
     }
 
@@ -1492,6 +1681,14 @@ export default class BootScene extends Phaser.Scene {
         tp.fillRect(50, 9, 12, 8);
         tp.generateTexture('toxic_pool', 112, 26);
         tp.destroy();
+
+        // Jett dagger (small cyan blade)
+        const jd = this.make.graphics({ x: 0, y: 0, add: false });
+        jd.fillStyle(0x0288d1); jd.fillRect(0, 16, 12, 4);   // guard
+        jd.fillStyle(0x4fc3f7); jd.fillRect(3,  0,  6, 20);  // blade
+        jd.fillStyle(0xe0f7fa); jd.fillRect(4,  1,  3, 14);  // shine
+        jd.generateTexture('jett_dagger', 12, 20);
+        jd.destroy();
 
         // Powerup drops
         const pfr = this.make.graphics({ x: 0, y: 0, add: false });
