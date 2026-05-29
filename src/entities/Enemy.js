@@ -19,15 +19,15 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setCollideWorldBounds(true);
 
         const stats = {
-            guard:    { hp: 65,  speed: 115, damage: 14, range: 44,  attackCd: 1100 },
+            guard:    { hp: 65,  speed: 95,  damage: 14, range: 44,  attackCd: 1100 },
             sniper:   { hp: 50,  speed: 0,   damage: 22, range: 700, attackCd: 2400 },
-            runner:   { hp: 35,  speed: 230, damage: 10, range: 38,  attackCd: 750  },
-            shielded: { hp: 80,  speed: 90,  damage: 16, range: 46,  attackCd: 1100 },
+            runner:   { hp: 35,  speed: 185, damage: 10, range: 38,  attackCd: 750  },
+            shielded: { hp: 80,  speed: 75,  damage: 16, range: 46,  attackCd: 1100 },
             spawner:  { hp: 200, speed: 0,   damage: 0,  range: 0,   attackCd: 99999 },
-            miniboss:   { hp: 320, speed: 105, damage: 28, range: 56,  attackCd: 900  },
-            berserker:  { hp: 50,  speed: 275, damage: 18, range: 42,  attackCd: 700  },
-            juggernaut: { hp: 260, speed: 65,  damage: 32, range: 60,  attackCd: 1600 },
-            vampire:    { hp: 90,  speed: 145, damage: 22, range: 46,  attackCd: 1100 },
+            miniboss:   { hp: 320, speed: 88,  damage: 28, range: 56,  attackCd: 900  },
+            berserker:  { hp: 50,  speed: 220, damage: 18, range: 42,  attackCd: 700  },
+            juggernaut: { hp: 260, speed: 60,  damage: 32, range: 60,  attackCd: 1600 },
+            vampire:    { hp: 90,  speed: 118, damage: 22, range: 46,  attackCd: 1100 },
         };
 
         const s = stats[type] || stats.guard;
@@ -156,12 +156,12 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                     const dir = player.x > this.x ? 1 : -1;
                     this.setVelocityX(dir * this.moveSpeed * speedMult);
 
-                    if (this.body.blocked.down && this.jumpCd <= 0) {
-                        const playerAbove = player.y < this.y - 70;
+                    if (this.body.blocked.down && this.jumpCd <= 0 && this.enemyType !== 'juggernaut') {
+                        const playerAbove  = player.y < this.y - 100;
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
                         if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(-760);
-                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                            this.setVelocityY(-720);
+                            this.jumpCd = Phaser.Math.Between(1600, 2800);
                         }
                     }
                 } else {
@@ -201,11 +201,11 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                     const spd = (this.charging ? this.moveSpeed * 2.2 : this.moveSpeed) * speedMult;
                     this.setVelocityX(dir * spd);
                     if (this.body.blocked.down && this.jumpCd <= 0) {
-                        const playerAbove  = player.y < this.y - 70;
+                        const playerAbove  = player.y < this.y - 100;
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
                         if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(-760);
-                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                            this.setVelocityY(-720);
+                            this.jumpCd = Phaser.Math.Between(1600, 2800);
                         }
                     }
                 } else {

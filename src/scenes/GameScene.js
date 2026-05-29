@@ -5,7 +5,7 @@ import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
 
 const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm'];
-const ROOM_W  = 1280;
+const ROOM_W  = 1440;
 const GROUND_Y = 648;
 
 const CURSES = [
@@ -538,6 +538,11 @@ export default class GameScene extends Phaser.Scene {
 
         if (this.enemyCount <= 0 && !this.roomDone) {
             this.roomDone = true;
+            // Kill any spawned stragglers (e.g. runners from a spawner) so the
+            // room clears cleanly even if their parent spawner just died last
+            this.enemyGroup.getChildren().slice().forEach(e => {
+                if (e.active && e.isSpawnedEnemy) { e.cleanupHpBar(); e.destroy(); }
+            });
             this.spawnDoor();
         }
     }

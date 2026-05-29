@@ -1,6 +1,6 @@
 export default class LevelGenerator {
     static generate(scene, groundGroup, platformGroup, roomIndex, roomStartX, floor = 1) {
-        const ROOM_W   = 1280;
+        const ROOM_W   = 1440;
         const GROUND_Y = 648;
         const roomEndX = roomStartX + ROOM_W;
         const tileW    = 64;
@@ -111,21 +111,26 @@ export default class LevelGenerator {
         const count       = Math.min(4 + difficulty + Math.floor(roomIndex / 2) + Math.floor(floor / 5), 18);
         const eliteChance = Math.max(0, (floor - 10) * 0.03); // grows ~3% per floor above 10
 
+        // Player starts at startX + 120 — keep enemies at least 300px away
+        const safeMinX = startX + 420;
+
         for (let i = 0; i < count; i++) {
             let x, y;
             const onGround = Math.random() < 0.55 || platforms.length === 0;
 
             if (onGround) {
-                x = Phaser.Math.Between(startX + 180, endX - 80);
+                x = Phaser.Math.Between(safeMinX, endX - 80);
                 y = groundY - 38;
             } else {
                 const MIN_CLEARANCE  = 130;
-                const openPlatforms  = platforms.filter(p =>
-                    !platforms.some(o => o !== p && o.y < p.y && p.y - o.y < MIN_CLEARANCE)
+                // Only use platforms safely away from the player spawn
+                const safePlats      = platforms.filter(p => p.x >= safeMinX - 64);
+                const openPlatforms  = safePlats.filter(p =>
+                    !safePlats.some(o => o !== p && o.y < p.y && p.y - o.y < MIN_CLEARANCE)
                 );
-                const pool = openPlatforms.length > 0 ? openPlatforms : null;
+                const pool = openPlatforms.length > 0 ? openPlatforms : (safePlats.length > 0 ? safePlats : null);
                 if (!pool) {
-                    x = Phaser.Math.Between(startX + 180, endX - 80);
+                    x = Phaser.Math.Between(safeMinX, endX - 80);
                     y = groundY - 38;
                 } else {
                     const p = pool[Phaser.Math.Between(0, pool.length - 1)];
@@ -143,7 +148,7 @@ export default class LevelGenerator {
     }
 
     static generateBossRoom(scene, groundGroup, platformGroup, roomIndex, startX, bossType) {
-        const ROOM_W   = 1280;
+        const ROOM_W   = 1440;
         const GROUND_Y = 648;
         const roomEndX = startX + ROOM_W;
         const tileW    = 64;

@@ -1,4 +1,5 @@
 const GROUND_Y = 648;
+const ROOM_W   = 1440;
 
 const BOSS_TEXTURES = {
     viper:   { key: 'boss_viper',   bw: 60, bh: 88, bo: [10,8], bullet: 'boss_bullet',         name: 'VIPER'   },
@@ -226,13 +227,13 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
     _spawnUltimateOrbs() {
         const orbGroup   = this.scene.viperOrbs;
         if (!orbGroup) return;
-        const roomStartX = this.scene.roomIndex * 1800;
+        const roomStartX = this.scene.roomIndex * ROOM_W;
 
         const positions = [
-            { x: roomStartX + 220,  y: GROUND_Y - 50  },  // ground L
-            { x: roomStartX + 1440, y: GROUND_Y - 50  },  // ground R
-            { x: roomStartX + 420,  y: GROUND_Y - 260 },  // elevated L
-            { x: roomStartX + 1240, y: GROUND_Y - 260 },  // elevated R
+            { x: roomStartX + 160,             y: GROUND_Y - 50  },  // ground L
+            { x: roomStartX + ROOM_W - 180,    y: GROUND_Y - 50  },  // ground R
+            { x: roomStartX + 340,             y: GROUND_Y - 260 },  // elevated L
+            { x: roomStartX + ROOM_W - 380,    y: GROUND_Y - 260 },  // elevated R
         ];
 
         positions.forEach(pos => {
@@ -252,8 +253,8 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
 
     _updateViperUltimate(player, enemyBullets, delta) {
         // Glide toward arena center
-        const roomStartX = this.scene.roomIndex * 1800;
-        const centerX    = roomStartX + 900;
+        const roomStartX = this.scene.roomIndex * ROOM_W;
+        const centerX    = roomStartX + ROOM_W / 2;
         const dx         = centerX - this.x;
         this.setVelocityX(Math.abs(dx) > 8 ? Math.sign(dx) * 110 : 0);
 
@@ -361,8 +362,8 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         const pools = this.scene.toxicPools;
         if (!pools || pools.getChildren().length >= 14) return;
 
-        const roomStartX = this.scene.roomIndex * 1800;
-        const targetX    = Phaser.Math.Between(roomStartX + 150, roomStartX + 1650);
+        const roomStartX = this.scene.roomIndex * ROOM_W;
+        const targetX    = Phaser.Math.Between(roomStartX + 150, roomStartX + ROOM_W - 150);
         const landY      = GROUND_Y - 10;
 
         // ── Lobbed projectile arc ────────────────────────────────
@@ -525,10 +526,10 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
 
     _phantomTeleport(player) {
         // Pick a spot away from player
-        const roomStartX = Math.floor(this.x / 1800) * 1800;
-        const offsets = [-420, -280, 280, 420];
+        const roomStartX = this.scene.roomIndex * ROOM_W;
+        const offsets = [-380, -240, 240, 380];
         const chosen  = offsets[Phaser.Math.Between(0, offsets.length - 1)];
-        const newX    = Phaser.Math.Clamp(player.x + chosen, roomStartX + 80, roomStartX + 1720);
+        const newX    = Phaser.Math.Clamp(player.x + chosen, roomStartX + 80, roomStartX + ROOM_W - 80);
 
         this.setAlpha(0);
         this.scene.time.delayedCall(320, () => {
