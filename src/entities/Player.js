@@ -55,6 +55,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.poisoned     = false;
         this.poisonTimer  = 0;
         this.poisonTickCd = 0;
+
+        // Powerup state
+        this._powerupInvincible = false;
+        this._unlimitedJumps    = false;
+        this.shieldHp           = 0;
     }
 
     setControls(cursors, wasd) {
@@ -95,6 +100,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             if (onGround) {
                 this.setVelocityY(this.jumpForce);
                 this.doubleJumped = false;
+            } else if (this._unlimitedJumps) {
+                this.setVelocityY(this.jumpForce * 0.85);
             } else if (this.canDoubleJump && !this.doubleJumped) {
                 this.setVelocityY(this.jumpForce * 0.78);
                 this.doubleJumped = true;
@@ -190,6 +197,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         bullet.setGravityY(-900);
         bullet.setRotation(angle);
         bullet.damage = dmg;
+        bullet.origVx = vx;
+        bullet.origVy = vy;
         bullet.isLifeSteal = this.lifeSteal;
         this.scene.time.delayedCall(1400, () => {
             if (bullet && bullet.active) bullet.destroy();
@@ -239,14 +248,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     takeDamage(amount) {
-        if (this.invincible) return;
+        if (this.invincible || this._powerupInvincible) return;
+
+        if (this.shieldHp > 0) {
+            this.shieldHp--;
+            this.floatText('SHIELD!', '#4488ff');
+            this.setTint(0x4488ff);
+            this.scene.time.delayedCall(200, () => { if (this.active && !this._powerupInvincible) this.clearTint(); });
+            return;
+        }
+
         const reduced = Math.max(1, Math.round(amount * this.damageReduction));
         this.hp -= reduced;
         this.scene.events.emit('hpChanged', this.hp);
 
         this.invincible = true;
         this.setTint(0xff4444);
-        this.scene.time.delayedCall(140, () => { if (this.active) this.clearTint(); });
+        this.scene.time.delayedCall(140, () => { if (this.active && !this._powerupInvincible) this.clearTint(); });
         this.scene.time.delayedCall(550, () => { this.invincible = false; });
 
         if (this.hp <= 0) {
@@ -294,6 +312,36 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'ability_cd':this.abilityCdMax = Math.max(500, Math.round(this.abilityCdMax * 0.85)); break;
             case 'lifedrain': this.lifedrain += 6; break;
             case 'hp_regen':  this.regenActive = true; break;
+            case 'shield':    this.shieldHp += 2; break;
+            case 'ricochet':  break; // tracked via this.upgrades array
+        }
+    }
+
+    applyPowerup(type) {
+        switch (type) {
+            case 'powerup_firerate': {
+                const prev = this.attackCdMax;
+                this.attackCdMax = Math.max(60, Math.round(this.attackCdMax * 0.4));
+                this.floatText('RAPID FIRE!', '#ffee00');
+                this.scene.time.delayedCall(8000, () => { if (this.active) this.attackCdMax = prev; });
+                break;
+            }
+            case 'powerup_invincible':
+                this._powerupInvincible = true;
+                this.setTint(0x4488ff);
+                this.floatText('INVINCIBLE!', '#4488ff');
+                this.scene.time.delayedCall(5000, () => {
+                    if (this.active) {
+                        this._powerupInvincible = false;
+                        if (!this.invincible) this.clearTint();
+                    }
+                });
+                break;
+            case 'powerup_jumps':
+                this._unlimitedJumps = true;
+                this.floatText('∞ JUMPS!', '#44ff88');
+                this.scene.time.delayedCall(10000, () => { if (this.active) this._unlimitedJumps = false; });
+                break;
         }
     }
 

@@ -1492,5 +1492,30 @@ export default class BootScene extends Phaser.Scene {
         tp.fillRect(50, 9, 12, 8);
         tp.generateTexture('toxic_pool', 112, 26);
         tp.destroy();
+
+        // Powerup drops
+        const pfr = this.make.graphics({ x: 0, y: 0, add: false });
+        pfr.fillStyle(0x554400); pfr.fillCircle(12, 12, 12);
+        pfr.fillStyle(0xffaa00); pfr.fillCircle(12, 12, 9);
+        pfr.fillStyle(0xffee00); pfr.fillCircle(12, 12, 5);
+        pfr.fillStyle(0xffffff); pfr.fillCircle(9,  9,  2);
+        pfr.generateTexture('powerup_firerate', 24, 24);
+        pfr.destroy();
+
+        const pin = this.make.graphics({ x: 0, y: 0, add: false });
+        pin.fillStyle(0x001155); pin.fillCircle(12, 12, 12);
+        pin.fillStyle(0x0044ff); pin.fillCircle(12, 12, 9);
+        pin.fillStyle(0x44aaff); pin.fillCircle(12, 12, 5);
+        pin.fillStyle(0xffffff); pin.fillCircle(9,  9,  2);
+        pin.generateTexture('powerup_invincible', 24, 24);
+        pin.destroy();
+
+        const puj = this.make.graphics({ x: 0, y: 0, add: false });
+        puj.fillStyle(0x003311); puj.fillCircle(12, 12, 12);
+        puj.fillStyle(0x00aa44); puj.fillCircle(12, 12, 9);
+        puj.fillStyle(0x44ff88); puj.fillCircle(12, 12, 5);
+        puj.fillStyle(0xffffff); puj.fillCircle(9,  9,  2);
+        puj.generateTexture('powerup_jumps', 24, 24);
+        puj.destroy();
     }
 }

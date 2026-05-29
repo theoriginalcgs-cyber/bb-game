@@ -58,6 +58,7 @@ export default class GameScene extends Phaser.Scene {
         this.enemyBullets  = this.physics.add.group({ maxSize: 50 });
         this.enemyGroup    = this.physics.add.group();
         this.healthDrops   = this.physics.add.staticGroup();
+        this.powerupDrops  = this.physics.add.staticGroup();
         this.doorGroup     = this.physics.add.staticGroup();
         this.toxicPools    = this.physics.add.staticGroup();
         this.bossWalls     = this.physics.add.staticGroup();
@@ -93,8 +94,8 @@ export default class GameScene extends Phaser.Scene {
 
         this.physics.add.collider(this.player,       this.groundGroup);
         this.physics.add.collider(this.enemyGroup,   this.groundGroup);
-        this.physics.add.collider(this.playerBullets, this.groundGroup,  (b) => b.destroy());
-        this.physics.add.collider(this.playerBullets, this.bossWalls,    (b) => b.destroy());
+        this.physics.add.collider(this.playerBullets, this.groundGroup, (b) => this._ricochetOrDestroy(b));
+        this.physics.add.collider(this.playerBullets, this.bossWalls,  (b) => this._ricochetOrDestroy(b));
         this.physics.add.collider(this.enemyBullets,  this.groundGroup,  (b) => b.destroy());
         this.physics.add.collider(this.player,        this.bossWalls);
         this.physics.add.collider(this.enemyGroup,    this.bossWalls);
@@ -167,6 +168,12 @@ export default class GameScene extends Phaser.Scene {
             this.player.gainHp(28);
         });
 
+        this.physics.add.overlap(this.player, this.powerupDrops, (player, drop) => {
+            const type = drop.powerupType;
+            drop.destroy();
+            this.player.applyPowerup(type);
+        });
+
         this.physics.add.overlap(this.player, this.doorGroup, () => {
             if (this.roomDone && !this.showingUpgrade) this.openUpgradeScreen();
         });
@@ -174,6 +181,7 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('resume',        this.onSceneResumed,   this);
         this.events.on('spawnFireball', this.onSpawnFireball,  this);
         this.events.on('dropHealth',    this.onDropHealth,     this);
+        this.events.on('dropPowerup',   this.onDropPowerup,    this);
         this.events.on('enemyDied',     this.onEnemyDied,      this);
         this.events.on('bossKilled',    () => this.bossMusic.stop(), this);
         this.events.on('lifeStealKill', (amt) => this.player.gainHp(amt), this);
@@ -440,6 +448,28 @@ export default class GameScene extends Phaser.Scene {
                 targets: this._viperPitFog, alpha: 0, duration: 1200,
                 onComplete: () => { this._viperPitFog?.destroy(); this._viperPitFog = null; },
             });
+        }
+    }
+
+    onDropPowerup(x, y, type) {
+        const drop = this.powerupDrops.create(x, y - 10, type);
+        if (!drop) return;
+        drop.setImmovable(true);
+        drop.powerupType = type;
+        drop.refreshBody();
+        this.tweens.add({ targets: drop, scaleX: 1.25, scaleY: 1.25, yoyo: true, repeat: -1, duration: 480 });
+        this.time.delayedCall(12000, () => { if (drop?.active) drop.destroy(); });
+    }
+
+    _ricochetOrDestroy(bullet) {
+        if (this.player.upgrades.includes('ricochet') && !bullet.bounced &&
+            (bullet.body.blocked.left || bullet.body.blocked.right)) {
+            bullet.bounced = true;
+            bullet.origVx  = -bullet.origVx;
+            bullet.setVelocity(bullet.origVx, bullet.origVy);
+            bullet.setRotation(Math.atan2(bullet.origVy, bullet.origVx));
+        } else {
+            bullet.destroy();
         }
     }
 

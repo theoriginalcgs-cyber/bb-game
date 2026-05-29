@@ -9,6 +9,8 @@ const ALL_UPGRADES = [
     { id: 'ability_cd', name: 'HASTE',        desc: 'Ability cooldown -15%',           color: '#40c4ff' },
     { id: 'lifedrain',  name: 'LIFEDRAIN',    desc: 'Kills restore 6 HP',              color: '#ce93d8' },
     { id: 'hp_regen',   name: 'REGENERATION', desc: 'Restore 2 HP every 2 seconds',   color: '#88ff88' },
+    { id: 'ricochet',   name: 'RICOCHET',     desc: 'Bullets bounce off walls once',  color: '#ff8c00' },
+    { id: 'shield',     name: 'SHIELD',       desc: 'Absorb 2 hits of damage (stackable)', color: '#4488ff' },
 ];
 
 export default class UpgradeScene extends Phaser.Scene {

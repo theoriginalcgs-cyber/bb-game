@@ -39,6 +39,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.attackCd    = Phaser.Math.Between(0, Math.min(s.attackCd, 1500));
         this.slowed      = false;
         this.slowTimer   = 0;
+        this.jumpCd      = 0;
 
         // Modifiers (applied externally by GameScene for curses etc.)
         this.armorMod       = 1;     // < 1 means takes less damage
@@ -116,6 +117,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         this.setFlipX(player.x < this.x);
         this.attackCd = Math.max(0, this.attackCd - delta);
+        this.jumpCd   = Math.max(0, this.jumpCd   - delta);
 
         if (this.slowed) {
             this.slowTimer -= delta;
@@ -133,6 +135,15 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                 if (dist > this.attackRange + 10) {
                     const dir = player.x > this.x ? 1 : -1;
                     this.setVelocityX(dir * this.moveSpeed * speedMult);
+
+                    if (this.body.blocked.down && this.jumpCd <= 0) {
+                        const playerAbove = player.y < this.y - 70;
+                        const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                        if (playerAbove || blockedHoriz) {
+                            this.setVelocityY(-760);
+                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                        }
+                    }
                 } else {
                     this.setVelocityX(0);
                     if (this.attackCd <= 0) {
@@ -255,6 +266,11 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         if (Math.random() < 0.22) this.scene.events.emit('dropHealth', this.x, this.y);
         if (isLifeSteal)          this.scene.events.emit('lifeStealKill', 14);
+
+        const POWERUP_TYPES = ['powerup_firerate', 'powerup_invincible', 'powerup_jumps'];
+        if (Math.random() < 0.05)
+            this.scene.events.emit('dropPowerup', this.x, this.y,
+                POWERUP_TYPES[Phaser.Math.Between(0, POWERUP_TYPES.length - 1)]);
 
         if (this.enemyType === 'miniboss') {
             this.scene.registry.set('minibossActive', false);
