@@ -11,9 +11,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
         const stats = {
             jett:    { maxHp: 100, speed: 340, jump: -660, damage: 20, abilityCd: 4000 },
-            phoenix: { maxHp: 100, speed: 290, jump: -620, damage: 38, abilityCd: 5000 },
-            sage:    { maxHp: 150, speed: 255, jump: -600, damage: 20, abilityCd: 8000 },
-            reyna:   { maxHp: 100, speed: 310, jump: -640, damage: 28, abilityCd: 6000 },
+            phoenix: { maxHp: 100, speed: 290, jump: -620, damage: 28, abilityCd: 5000 },
+            sage:    { maxHp: 150, speed: 255, jump: -600, damage: 18, abilityCd: 8000 },
+            reyna:   { maxHp: 100, speed: 310, jump: -640, damage: 26, abilityCd: 6000 },
         };
 
         const s = stats[agentKey];

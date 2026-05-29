@@ -103,7 +103,7 @@ export default class MenuScene extends Phaser.Scene {
         });
 
         // Info panel
-        const panelY = 560;
+        const panelY = 520;
         this.infoName = this.add.text(W / 2, panelY - 36, '', {
             fontSize: '26px', fontFamily: 'Arial Black, Arial',
             color: '#ffffff', fontStyle: 'bold',
@@ -119,7 +119,7 @@ export default class MenuScene extends Phaser.Scene {
         this.statBars = this.createStatBars(W / 2, panelY + 90);
 
         // Start button
-        const btnY = 676;
+        const btnY = 668;
         const btnBg = this.add.rectangle(W / 2, btnY, 240, 48, 0xff4655);
         this.add.text(W / 2, btnY, 'START RUN', {
             fontSize: '20px', fontFamily: 'Arial Black, Arial',
@@ -131,7 +131,7 @@ export default class MenuScene extends Phaser.Scene {
         btnBg.on('pointerdown', () => this.startGame());
 
         // Debug: quick boss test button
-        const testBtn = this.add.text(W / 2, 706, '[ TEST: VIPER BOSS ]', {
+        const testBtn = this.add.text(W / 2, 700, '[ TEST: VIPER BOSS ]', {
             fontSize: '11px', fontFamily: 'Arial', color: '#336633', letterSpacing: 1,
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
         testBtn.on('pointerover', () => testBtn.setColor('#00cc44'));
