@@ -535,16 +535,30 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
+        this._checkRoomClear();
+    }
 
-        if (this.enemyCount <= 0 && !this.roomDone) {
-            this.roomDone = true;
-            // Kill any spawned stragglers (e.g. runners from a spawner) so the
-            // room clears cleanly even if their parent spawner just died last
-            this.enemyGroup.getChildren().slice().forEach(e => {
-                if (e.active && e.isSpawnedEnemy) { e.cleanupHpBar(); e.destroy(); }
-            });
-            this.spawnDoor();
+    _checkRoomClear() {
+        if (this.roomDone) return;
+
+        // Ground truth: count actually living non-spawned enemies in the group.
+        // This is the authoritative check — the counter is a fast-path hint only.
+        const stillAlive = this.enemyGroup.getChildren().filter(e => e.active && !e.isSpawnedEnemy);
+
+        if (stillAlive.length > 0) {
+            // Re-sync the counter in case it drifted
+            this.enemyCount = stillAlive.length;
+            return;
         }
+
+        this.roomDone = true;
+
+        // Destroy any spawned runners still alive (from spawner enemies)
+        this.enemyGroup.getChildren().slice().forEach(e => {
+            if (e.active && e.isSpawnedEnemy) { e.cleanupHpBar(); e.destroy(); }
+        });
+
+        this.spawnDoor();
     }
 
     spawnDoor() {
@@ -734,6 +748,12 @@ export default class GameScene extends Phaser.Scene {
         this.registry.set('abilityReady', this.player.abilityReadyPercent());
         this.registry.set('roomDone',     this.roomDone);
         this.registry.set('enemyCount',   this.enemyCount);
+
+        // Periodic safety check: catch any enemy that died silently (no kill() call)
+        if (!this.roomDone && Math.floor(time / 1000) !== this._lastClearCheck) {
+            this._lastClearCheck = Math.floor(time / 1000);
+            this._checkRoomClear();
+        }
 
         if (this.player.y > this.scale.height + 50) {
             this.player.takeDamage(999);
