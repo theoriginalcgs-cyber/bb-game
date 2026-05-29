@@ -553,6 +553,9 @@ export default class GameScene extends Phaser.Scene {
 
         this.roomDone = true;
 
+        // Remove arena containment walls so the player can reach the exit door
+        this.bossWalls.clear(true, true);
+
         // Destroy any spawned runners still alive (from spawner enemies)
         this.enemyGroup.getChildren().slice().forEach(e => {
             if (e.active && e.isSpawnedEnemy) { e.cleanupHpBar(); e.destroy(); }

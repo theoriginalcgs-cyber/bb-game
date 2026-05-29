@@ -719,7 +719,8 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         // Clean up Viper's ultimate state if she dies mid-ultimate
         if (this.bossType === 'viper') {
             if (this.scene.viperOrbs) this.scene.viperOrbs.clear(true, true);
-            if (this.inUltimate) this.scene.events.emit('viperPitEnd');
+            // Always clean up pit state regardless of whether ultimate was active
+            this.scene.events.emit('viperPitEnd');
         }
 
         this.scene.registry.set('bossActive', false);
