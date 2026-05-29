@@ -26,7 +26,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         const tier = Math.floor(floor / 10);
         this.tier  = tier;
 
-        this.maxHp       = 350 + tier * 280;
+        this.maxHp       = 900 + tier * 600;
         this.hp          = this.maxHp;
         this.phase       = 1;
         this.moveSpeed   = 82 + tier * 9;
@@ -44,7 +44,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         this.poolCdMax        = 5000;
         this.poolCd           = 800;
         this.ultimateCdMax    = 30000;
-        this.ultimateCd       = 14000;
+        this.ultimateCd       = 5000;
         this.inUltimate       = false;
         this.ultimateOrbsLeft = 0;
         this.ultimateHealTimer = 0;
