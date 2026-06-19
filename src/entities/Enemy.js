@@ -80,8 +80,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         }
 
         if (type === 'miniboss') {
-            this.setScale(1.35);
-            if (!isElite) this.setTint(0xff4400);
+            this.minibossSubtype = 'warlord'; // overridden by GameScene after construction
+            this.setScale(1.4);
+            // Subtype vars populated in _initMinibossSubtype()
         }
 
         if (type === 'berserker') {
@@ -171,7 +172,6 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             case 'guard':
             case 'runner':
             case 'shielded':
-            case 'miniboss':
             case 'juggernaut':
                 if (dist > this.attackRange + 10) {
                     const dir = player.x > this.x ? 1 : -1;
@@ -181,7 +181,6 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                         const playerAbove  = player.y < this.y - 100;
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
                         if (playerAbove || blockedHoriz) {
-                            // Higher jump + shorter CD when chasing player on a platform
                             this.setVelocityY(playerAbove ? -820 : -720);
                             this.jumpCd = playerAbove
                                 ? Phaser.Math.Between(800, 1400)
@@ -195,6 +194,10 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                         player.takeDamage(this.damage);
                     }
                 }
+                break;
+
+            case 'miniboss':
+                this._updateMiniboss(player, enemyBullets, delta, dist, speedMult);
                 break;
 
             case 'sniper':
@@ -365,6 +368,22 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     hit(amount, isLifeSteal = false) {
+        // Titan Scout mini-boss stagger tracking
+        if (this.enemyType === 'miniboss' && this.minibossSubtype === 'titan_scout' && !this.tsStaggered) {
+            if (this.tsStaggerWin <= 0) this.tsStaggerWin = 2500;
+            this.tsStaggerHp += amount;
+            if (this.tsStaggerHp >= 150) {
+                this.tsStaggered  = true;
+                this.tsStaggerWin = 0;
+                this.tsStaggerHp  = 0;
+                this.tsChargeCd   = 2000; // brief stagger duration
+                this.armorMod     = 1;
+                this.setTint(0xff4444);
+                this._floatText('STAGGERED!', '#ff6666');
+                this.scene.cameras.main.shake(150, 0.009);
+            }
+        }
+
         // Colossus stagger tracking
         if (this.enemyType === 'colossus' && !this.staggered) {
             if (this.staggerWindow <= 0) this.staggerWindow = 3000;
@@ -428,7 +447,10 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     _restoreTypeTint() {
         if (!this.active) return;
         if (this.enemyType === 'shielded' && this.shieldHp > 0) this.setTint(0x0088ff);
-        else if (this.enemyType === 'miniboss')   this.setTint(0xff4400);
+        else if (this.enemyType === 'miniboss') {
+            const TINTS = { warlord: 0xff4400, gunner: 0x00cc55, shade: 0xaa00ff, titan_scout: 0x607d8b, storm_caller: 0xffdd00 };
+            this.setTint(TINTS[this.minibossSubtype] ?? 0xff4400);
+        }
         else if (this.enemyType === 'berserker')  this.setTint(0xff4400);
         else if (this.enemyType === 'juggernaut') this.setTint(0x888888);
         else if (this.enemyType === 'wraith')     this.setTint(0xaa44ff);
@@ -444,6 +466,389 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             targets: txt, y: txt.y - 40, alpha: 0, duration: 800,
             onComplete: () => txt.destroy(),
         });
+    }
+
+    // ─── MINI-BOSS SUBTYPE SYSTEM ───────────────────────────────
+
+    _initMinibossSubtype(subtype) {
+        this.minibossSubtype = subtype;
+        const TINTS = { warlord: 0xff4400, gunner: 0x00cc55, shade: 0xaa00ff, titan_scout: 0x607d8b, storm_caller: 0xffdd00 };
+        this.setTint(TINTS[subtype] ?? 0xff4400);
+
+        // Override stats per subtype
+        const fl = this.scene.registry.get('floor') ?? 1;
+        const fs = Math.min(2.5, 1 + Math.max(0, fl - 1) * 0.05);
+        switch (subtype) {
+            case 'warlord':
+                this.maxHp    = Math.round(380 * fs); this.hp = this.maxHp;
+                this.moveSpeed = Math.round(95  * Math.min(1.7, 1 + fl * 0.025));
+                this.damage   = Math.round(30  * fs);
+                this.attackRange = 58;
+                this.slamCdMax  = 4500; this.slamCd   = 3000;
+                this.mbEnraged  = false;
+                break;
+            case 'gunner':
+                this.maxHp    = Math.round(280 * fs); this.hp = this.maxHp;
+                this.moveSpeed = Math.round(58  * Math.min(1.7, 1 + fl * 0.025));
+                this.damage   = Math.round(22  * fs);
+                this.attackRange = 480;
+                this.burstCdMax = 2000; this.burstCd = 1000;
+                this.turretCdMax= 12000; this.turretCd = 6000;
+                this.turretFireCdMax = 1500; this.turretFireCd = 1500;
+                this.turretPos  = null;
+                break;
+            case 'shade':
+                this.maxHp    = Math.round(220 * fs); this.hp = this.maxHp;
+                this.moveSpeed = Math.round(155 * Math.min(1.7, 1 + fl * 0.025));
+                this.damage   = Math.round(28  * fs);
+                this.attackRange = 50;
+                this.blinkCdMax = 2800; this.blinkCd = 2000;
+                this.mbInvisible = false; this.mbInvisTimer = 0;
+                this.mbEnraged   = false;
+                break;
+            case 'titan_scout':
+                this.maxHp    = Math.round(460 * fs); this.hp = this.maxHp;
+                this.moveSpeed = Math.round(62  * Math.min(1.7, 1 + fl * 0.025));
+                this.damage   = Math.round(36  * fs);
+                this.attackRange = 60;
+                this.armorMod   = 0.45;
+                this.tsStaggerHp = 0; this.tsStaggerWin = 0; this.tsStaggered = false;
+                this.tsChargeCdMax = 5000; this.tsChargeCd = 3000;
+                this.tsCharging    = false; this.tsChargeDur = 0;
+                break;
+            case 'storm_caller':
+                this.maxHp    = Math.round(260 * fs); this.hp = this.maxHp;
+                this.moveSpeed = Math.round(42  * Math.min(1.7, 1 + fl * 0.025));
+                this.damage   = Math.round(24  * fs);
+                this.attackRange = 560;
+                this.boltCdMax  = 1800; this.boltCd  = 1000;
+                this.barrageCdMax= 8000; this.barrageCd = 5000;
+                break;
+        }
+        this.scene.registry.set('minibossMaxHp', this.maxHp);
+        this.scene.registry.set('minibossHp',    this.hp);
+    }
+
+    _updateMiniboss(player, enemyBullets, delta, dist, speedMult) {
+        switch (this.minibossSubtype) {
+            case 'warlord':     this._mbWarlord(player, enemyBullets, delta, dist, speedMult); break;
+            case 'gunner':      this._mbGunner(player, enemyBullets, delta, dist, speedMult);  break;
+            case 'shade':       this._mbShade(player, enemyBullets, delta, dist, speedMult);   break;
+            case 'titan_scout': this._mbTitanScout(player, enemyBullets, delta, dist, speedMult); break;
+            case 'storm_caller':this._mbStormCaller(player, enemyBullets, delta, dist, speedMult); break;
+            default:            this._mbWarlord(player, enemyBullets, delta, dist, speedMult); break;
+        }
+    }
+
+    // ── WARLORD — melee bruiser, ground slam, enrages at 50% ────
+    _mbWarlord(player, bullets, delta, dist, speedMult) {
+        this.attackCd = Math.max(0, this.attackCd - delta);
+        this.slamCd   = Math.max(0, this.slamCd   - delta);
+        this.jumpCd   = Math.max(0, this.jumpCd   - delta);
+
+        // Enrage at 50% HP (once)
+        if (!this.mbEnraged && this.hp <= this.maxHp * 0.5) {
+            this.mbEnraged = true;
+            this.moveSpeed  = Math.round(this.moveSpeed * 1.35);
+            this.damage     = Math.round(this.damage    * 1.25);
+            this.attackCdMax = Math.round(this.attackCdMax * 0.7);
+            this.setTint(0xff8800);
+            this._floatText('ENRAGED!', '#ff8800');
+            this.scene.cameras.main.shake(250, 0.012);
+        }
+
+        // Ground slam: jump toward player then shockwave on land
+        if (this.slamCd <= 0 && dist < 320 && this.body.blocked.down) {
+            this.slamCd = this.slamCdMax;
+            this._floatText('SLAM!', '#ff4400');
+            const dir = player.x > this.x ? 1 : -1;
+            this.setVelocityX(dir * 260);
+            this.setVelocityY(-680);
+            this.scene.time.delayedCall(550, () => {
+                if (!this.active) return;
+                this.scene.events.emit('minibossShockwave', this.x, this.y, Math.round(this.damage * 1.4), 130);
+            });
+            return;
+        }
+
+        // Normal chase + melee
+        if (dist > this.attackRange + 10) {
+            const dir = player.x > this.x ? 1 : -1;
+            this.setVelocityX(dir * this.moveSpeed * speedMult);
+            if (this.body.blocked.down && this.jumpCd <= 0) {
+                const above   = player.y < this.y - 100;
+                const blocked = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                if (above || blocked) {
+                    this.setVelocityY(above ? -840 : -740);
+                    this.jumpCd = above ? Phaser.Math.Between(800,1400) : Phaser.Math.Between(1600,2800);
+                }
+            }
+        } else {
+            this.setVelocityX(0);
+            if (this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(this.damage);
+                this.scene.cameras.main.shake(80, 0.007);
+            }
+        }
+    }
+
+    // ── GUNNER — ranged burst fire + deploys a mini-turret ───────
+    _mbGunner(player, bullets, delta, dist, speedMult) {
+        this.attackCd    = Math.max(0, this.attackCd    - delta);
+        this.burstCd     = Math.max(0, this.burstCd     - delta);
+        this.turretCd    = Math.max(0, this.turretCd    - delta);
+        this.turretFireCd= Math.max(0, this.turretFireCd- delta);
+
+        // Keep preferred range 220-480px
+        const dir = player.x > this.x ? 1 : -1;
+        if (dist < 220) {
+            this.setVelocityX(-dir * this.moveSpeed * speedMult);
+        } else if (dist > 480) {
+            this.setVelocityX(dir * this.moveSpeed * 0.6 * speedMult);
+        } else {
+            this.setVelocityX(0);
+        }
+
+        // 3-round burst
+        if (this.burstCd <= 0 && dist <= this.attackRange) {
+            this.burstCd = this.burstCdMax;
+            for (let i = 0; i < 3; i++) {
+                this.scene.time.delayedCall(i * 140, () => {
+                    if (!this.active) return;
+                    const spread = (Math.random() - 0.5) * 0.16;
+                    const angle  = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y) + spread;
+                    const b = bullets.create(this.x, this.y - 8, 'enemy_bullet');
+                    if (!b) return;
+                    b.setVelocity(Math.cos(angle) * 430, Math.sin(angle) * 430);
+                    b.setGravityY(-900);
+                    b.damage = Math.round(this.damage * 0.75);
+                    b.setTint(0x00ff66);
+                    this.scene.time.delayedCall(2400, () => { if (b?.active) b.destroy(); });
+                });
+            }
+        }
+
+        // Deploy turret (once per spawn cycle)
+        if (this.turretCd <= 0) {
+            this.turretCd = this.turretCdMax;
+            const tx = this.x + (Math.random() > 0.5 ? 200 : -200);
+            this.turretPos = { x: Phaser.Math.Clamp(tx, this.x - 300, this.x + 300), y: this.y };
+            this.scene.events.emit('minibossGunnerTurret', this.turretPos.x, this.turretPos.y);
+            this._floatText('DEPLOY!', '#00cc55');
+        }
+
+        // Fire from turret
+        if (this.turretPos && this.turretFireCd <= 0 && dist < 700) {
+            this.turretFireCd = this.turretFireCdMax;
+            const angle = Phaser.Math.Angle.Between(this.turretPos.x, this.turretPos.y, player.x, player.y);
+            const b = bullets.create(this.turretPos.x, this.turretPos.y - 8, 'enemy_bullet');
+            if (b) {
+                b.setVelocity(Math.cos(angle) * 370, Math.sin(angle) * 370);
+                b.setGravityY(-900);
+                b.damage = Math.round(this.damage * 0.6);
+                b.setTint(0x00ff88);
+                this.scene.time.delayedCall(2800, () => { if (b?.active) b.destroy(); });
+            }
+        }
+    }
+
+    // ── SHADE — teleport melee, goes invisible post-blink ────────
+    _mbShade(player, bullets, delta, dist, speedMult) {
+        this.attackCd = Math.max(0, this.attackCd - delta);
+        this.blinkCd  = Math.max(0, this.blinkCd  - delta);
+        this.jumpCd   = Math.max(0, this.jumpCd   - delta);
+
+        if (this.mbInvisible) {
+            this.mbInvisTimer -= delta;
+            if (this.mbInvisTimer <= 0) {
+                this.mbInvisible = false;
+                this.setAlpha(0.85);
+                this._restoreTypeTint();
+            }
+        }
+
+        // Enrage at 50% — halve blink CD
+        if (!this.mbEnraged && this.hp <= this.maxHp * 0.5) {
+            this.mbEnraged   = true;
+            this.blinkCdMax  = Math.round(this.blinkCdMax * 0.5);
+            this.attackCdMax = Math.round(this.attackCdMax * 0.75);
+            this._floatText('FADE!', '#cc44ff');
+            this.setAlpha(0.55);
+        }
+
+        // Blink to player
+        if (this.blinkCd <= 0) {
+            this.blinkCd = this.blinkCdMax;
+            const offsetX = (Math.random() > 0.5 ? 52 : -52) + Phaser.Math.Between(-16, 16);
+            this.setPosition(player.x + offsetX, player.y);
+            this.setVelocityX(0);
+            this.setTint(0xffffff);
+            this.scene.cameras.main.flash(80, 120, 0, 200);
+            // Go invisible post-blink
+            this.mbInvisible  = true;
+            this.mbInvisTimer = 1400;
+            this.setAlpha(0.12);
+            this.scene.time.delayedCall(80, () => { if (this.active) this._restoreTypeTint(); });
+            return;
+        }
+
+        // During invisible: stay close and wait
+        if (this.mbInvisible) {
+            if (dist <= this.attackRange && this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(Math.round(this.damage * 1.4)); // bonus from stealth
+                this._floatText('BACKSTAB!', '#ff44ff');
+                this.mbInvisible = false;
+                this.setAlpha(0.85);
+            }
+            return;
+        }
+
+        // Normal approach
+        if (dist > this.attackRange + 10) {
+            const dir = player.x > this.x ? 1 : -1;
+            this.setVelocityX(dir * this.moveSpeed * speedMult);
+            if (this.body.blocked.down && this.jumpCd <= 0) {
+                const above   = player.y < this.y - 100;
+                const blocked = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                if (above || blocked) {
+                    this.setVelocityY(-820);
+                    this.jumpCd = Phaser.Math.Between(700, 1200);
+                }
+            }
+        } else {
+            this.setVelocityX(0);
+            if (this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(this.damage);
+            }
+        }
+    }
+
+    // ── TITAN SCOUT — armored, shoulder charges across the room ──
+    _mbTitanScout(player, bullets, delta, dist, speedMult) {
+        this.attackCd     = Math.max(0, this.attackCd   - delta);
+        this.jumpCd       = Math.max(0, this.jumpCd     - delta);
+        this.tsChargeCd   = Math.max(0, this.tsChargeCd - delta);
+        if (this.tsStaggerWin > 0) this.tsStaggerWin -= delta;
+
+        // Stagger recovery
+        if (this.tsStaggered) {
+            this.tsChargeCd -= delta;
+            if (this.tsChargeCd <= 0) {
+                this.tsStaggered = false;
+                this.armorMod    = 0.45;
+                this.tsStaggerHp = 0;
+                this.tsChargeCd  = this.tsChargeCdMax;
+                this._restoreTypeTint();
+                this._floatText('ARMORED', '#90aabb');
+            }
+        }
+
+        // Shoulder charge: horizontal dash across room
+        if (this.tsCharging) {
+            this.tsChargeDur -= delta;
+            if (this.tsChargeDur <= 0) {
+                this.tsCharging = false;
+                this.setVelocityX(0);
+                this.armorMod = 0.45;
+                if (!this.tsStaggered) this._restoreTypeTint();
+            }
+            // Hit player during charge
+            if (dist < 70 && this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(Math.round(this.damage * 1.6));
+                this.scene.cameras.main.shake(180, 0.015);
+                this._floatText('CHARGE HIT!', '#90aabb');
+            }
+            return;
+        }
+
+        // Trigger charge
+        if (this.tsChargeCd <= 0 && !this.tsStaggered && this.body.blocked.down) {
+            this.tsChargeCd  = this.tsChargeCdMax;
+            this.tsCharging  = true;
+            this.tsChargeDur = 620;
+            this.armorMod    = 0; // charge phase is unarmored but moving fast
+            const dir = player.x > this.x ? 1 : -1;
+            this.setVelocityX(dir * 580);
+            this.setTint(0xffffff);
+            this._floatText('CHARGE!', '#607d8b');
+            this.scene.cameras.main.shake(120, 0.009);
+            return;
+        }
+
+        // Normal slow chase
+        if (dist > this.attackRange + 10) {
+            const dir = player.x > this.x ? 1 : -1;
+            this.setVelocityX(dir * this.moveSpeed * speedMult);
+        } else {
+            this.setVelocityX(0);
+            if (this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(this.damage);
+                this.scene.cameras.main.shake(100, 0.008);
+            }
+        }
+    }
+
+    // ── STORM CALLER — ranged lightning, barrages the player ─────
+    _mbStormCaller(player, bullets, delta, dist, speedMult) {
+        this.attackCd  = Math.max(0, this.attackCd  - delta);
+        this.boltCd    = Math.max(0, this.boltCd    - delta);
+        this.barrageCd = Math.max(0, this.barrageCd - delta);
+        this.jumpCd    = Math.max(0, this.jumpCd    - delta);
+
+        // Stay at 280-560px range
+        const dir = player.x > this.x ? 1 : -1;
+        if (dist < 280) {
+            this.setVelocityX(-dir * this.moveSpeed * speedMult);
+        } else if (dist > 560) {
+            this.setVelocityX(dir * this.moveSpeed * 0.7 * speedMult);
+        } else {
+            this.setVelocityX(0);
+        }
+
+        // Single aimed bolt
+        if (this.boltCd <= 0 && dist <= this.attackRange) {
+            this.boltCd = this.boltCdMax;
+            const angle = Phaser.Math.Angle.Between(this.x, this.y - 8, player.x, player.y);
+            const b = bullets.create(this.x, this.y - 8, 'enemy_bullet');
+            if (b) {
+                b.setVelocity(Math.cos(angle) * 510, Math.sin(angle) * 510);
+                b.setGravityY(-900);
+                b.damage = Math.round(this.damage * 0.85);
+                b.setTint(0xffff44);
+                this.scene.time.delayedCall(2600, () => { if (b?.active) b.destroy(); });
+            }
+        }
+
+        // Lightning Barrage — 5 fast bolts rapid-fire
+        if (this.barrageCd <= 0 && dist <= this.attackRange) {
+            this.barrageCd = this.barrageCdMax;
+            this._floatText('LIGHTNING!', '#ffdd00');
+            this.scene.cameras.main.flash(150, 255, 240, 80);
+            for (let i = 0; i < 5; i++) {
+                this.scene.time.delayedCall(i * 110, () => {
+                    if (!this.active) return;
+                    const spread = (Math.random() - 0.5) * 0.3;
+                    const a = Phaser.Math.Angle.Between(this.x, this.y - 8, player.x, player.y) + spread;
+                    const b = bullets.create(this.x, this.y - 8, 'enemy_bullet');
+                    if (!b) return;
+                    b.setVelocity(Math.cos(a) * 540, Math.sin(a) * 540);
+                    b.setGravityY(-900);
+                    b.damage = Math.round(this.damage * 1.1);
+                    b.setTint(0xffffff);
+                    this.scene.time.delayedCall(2500, () => { if (b?.active) b.destroy(); });
+                });
+            }
+            // Drop a lightning strike zone under the player
+            this.scene.time.delayedCall(300, () => {
+                if (!this.active) return;
+                this.scene.events.emit('minibossLightningStrike', player.x, player.y);
+            });
+        }
     }
 
     applySlowEffect(ms) {

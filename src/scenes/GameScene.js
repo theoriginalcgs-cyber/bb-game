@@ -372,9 +372,12 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('kayoUltStart',        this.onKayoUltStart,        this);
         this.events.on('kayoUltEnd',          this.onKayoUltEnd,          this);
         this.events.on('kayoEmpBlast',        this.onKayoEmpBlast,        this);
-        this.events.on('killjoyTurretsPlaced',this.onKilljoyTurretsPlaced,this);
-        this.events.on('killjoyMollyLand',    this.onKilljoyMollyLand,    this);
-        this.events.on('killjoyDetainRod',    this.onKilljoyDetainRod,    this);
+        this.events.on('killjoyTurretsPlaced',   this.onKilljoyTurretsPlaced,   this);
+        this.events.on('killjoyMollyLand',       this.onKilljoyMollyLand,       this);
+        this.events.on('killjoyDetainRod',       this.onKilljoyDetainRod,       this);
+        this.events.on('minibossShockwave',      this.onMinibossShockwave,      this);
+        this.events.on('minibossGunnerTurret',   this.onMinibossGunnerTurret,   this);
+        this.events.on('minibossLightningStrike',this.onMinibossLightningStrike,this);
         this.events.on('shieldChanged', (val) => this.registry.set('playerShield', val), this);
         this.events.on('temporalFieldActive', () => {
             this.enemyGroup.getChildren().forEach(e => {
@@ -565,31 +568,59 @@ export default class GameScene extends Phaser.Scene {
 
     spawnMiniBoss(startX) {
         const cx = startX + ROOM_W / 2;
-        // Spawn above ground so physics lands it correctly (scale 1.35 × 72px height = 97px)
-        const mb = new Enemy(this, cx, GROUND_Y - 62, 'miniboss', this.floor, false);
+
+        // ── Pick subtype based on floor ──────────────────────────
+        const POOL_BY_FLOOR = [
+            { maxFloor: 14,  pool: ['warlord','warlord','gunner'] },
+            { maxFloor: 24,  pool: ['warlord','gunner','shade'] },
+            { maxFloor: 34,  pool: ['gunner','shade','titan_scout','storm_caller'] },
+            { maxFloor: 9999,pool: ['shade','titan_scout','storm_caller','storm_caller'] },
+        ];
+        const entry   = POOL_BY_FLOOR.find(e => this.floor <= e.maxFloor) ?? POOL_BY_FLOOR[3];
+        const subtype = entry.pool[Phaser.Math.Between(0, entry.pool.length - 1)];
+
+        const MB_META = {
+            warlord:      { label: 'WARLORD',       col: '#ff6622', flashR: 180, flashG: 30,  flashB: 0,   escorts: ['guard','guard']    },
+            gunner:       { label: 'GUNNER ELITE',  col: '#44ff88', flashR: 0,   flashG: 160, flashB: 60,  escorts: ['runner','runner']   },
+            shade:        { label: 'SHADE',         col: '#cc44ff', flashR: 100, flashG: 0,   flashB: 200, escorts: ['wraith',null]       },
+            titan_scout:  { label: 'TITAN SCOUT',   col: '#90c0cc', flashR: 40,  flashG: 80,  flashB: 120, escorts: ['shielded','shielded']},
+            storm_caller: { label: 'STORM CALLER',  col: '#ffee44', flashR: 200, flashG: 220, flashB: 0,   escorts: ['sniper','sniper']   },
+        };
+        const meta = MB_META[subtype] ?? MB_META.warlord;
+
+        // Spawn mini-boss
+        const mb = new Enemy(this, cx, GROUND_Y - 72, 'miniboss', this.floor, false);
+        mb._initMinibossSubtype(subtype);
         this.enemyGroup.add(mb);
         this.enemyCount++;
 
         this.registry.set('minibossActive', true);
         this.registry.set('minibossHp',    mb.maxHp);
         this.registry.set('minibossMaxHp', mb.maxHp);
-        this.registry.set('minibossName',  `⚡ ELITE — FLOOR ${this.floor}`);
+        this.registry.set('minibossName',  `⚡ ${meta.label} — FLOOR ${this.floor}`);
 
-        // Two guard escorts
-        const g1 = new Enemy(this, cx - 280, GROUND_Y - 38, 'guard', this.floor, false);
-        const g2 = new Enemy(this, cx + 280, GROUND_Y - 38, 'guard', this.floor, false);
-        this.enemyGroup.add(g1);
-        this.enemyGroup.add(g2);
-        this.enemyCount += 2;
-
-        this.cameras.main.flash(300, 180, 30, 0);
-        this.time.delayedCall(300, () => {
-            const tx  = this.cameras.main.scrollX + this.scale.width / 2;
-            const txt = this.add.text(tx, 200, `⚡ ELITE THREAT — FLOOR ${this.floor}`, {
-                fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
-            }).setOrigin(0.5).setScrollFactor(0);
-            this.tweens.add({ targets: txt, alpha: 0, y: 160, duration: 2400, delay: 400, onComplete: () => txt.destroy() });
+        // Subtype-specific escorts
+        meta.escorts.forEach((type, i) => {
+            if (!type) return;
+            const ex = cx + (i === 0 ? -300 : 300);
+            const e  = new Enemy(this, ex, GROUND_Y - 38, type, this.floor, false);
+            this.enemyGroup.add(e);
+            this.enemyCount++;
         });
+
+        this.cameras.main.flash(320, meta.flashR, meta.flashG, meta.flashB);
+        this.time.delayedCall(280, () => {
+            const tx  = this.cameras.main.scrollX + this.scale.width / 2;
+            const txt = this.add.text(tx, 200, `⚡ ${meta.label} — FLOOR ${this.floor}`, {
+                fontSize: '28px', color: meta.col, fontStyle: 'bold',
+                stroke: '#000000', strokeThickness: 3,
+            }).setOrigin(0.5).setScrollFactor(0);
+            this.tweens.add({ targets: txt, alpha: 0, y: 155, duration: 2500, delay: 400, onComplete: () => txt.destroy() });
+        });
+
+        // Update UIScene HP-bar fill color to match subtype
+        const BAR_COLS = { warlord: 0xff6622, gunner: 0x00cc55, shade: 0xaa00ff, titan_scout: 0x607d8b, storm_caller: 0xffdd00 };
+        this.registry.set('minibossBarColor', BAR_COLS[subtype] ?? 0xff8800);
     }
 
     // ─── Curse helpers ───────────────────────────────────────────────
@@ -862,6 +893,60 @@ export default class GameScene extends Phaser.Scene {
             if (!this._killjoyTurretGfx) this._killjoyTurretGfx = [];
             this._killjoyTurretGfx.push(g);
         });
+    }
+
+    onMinibossShockwave(x, y, damage, radius) {
+        const r   = radius ?? 130;
+        const gfx = this.add.graphics().setDepth(6);
+        // Expanding ring
+        gfx.fillStyle(0xff4400, 0.30); gfx.fillCircle(x, y, r);
+        gfx.lineStyle(4, 0xff8800, 0.80); gfx.strokeCircle(x, y, r);
+        gfx.lineStyle(2, 0xffffff, 0.50); gfx.strokeCircle(x, y, r * 0.6);
+        this.tweens.add({
+            targets: gfx, alpha: 0, scaleX: 1.4, scaleY: 1.4, duration: 500,
+            onComplete: () => gfx.destroy(),
+        });
+        this.cameras.main.shake(200, 0.012);
+        if (this.player?.active) {
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y);
+            if (d < r) {
+                this.player.takeDamage(damage ?? 30);
+                this.player.floatText('SHOCKWAVE!', '#ff6600');
+            }
+        }
+    }
+
+    onMinibossGunnerTurret(x, y) {
+        const gfx = this.add.graphics().setDepth(4);
+        // Mini-turret visual
+        gfx.fillStyle(0x002200, 0.9);  gfx.fillRect(x - 14, y - 20, 28, 20);
+        gfx.fillStyle(0x00cc55, 0.85); gfx.fillRect(x - 14, y - 20, 28, 5);
+        gfx.fillStyle(0x00cc55, 0.85); gfx.fillRect(x - 14, y - 5,  28, 5);
+        gfx.fillStyle(0x00ff66, 1);    gfx.fillRect(x - 4,  y - 16, 22, 8);
+        gfx.fillStyle(0x88ffaa, 1);    gfx.fillCircle(x - 4, y - 12, 4);
+        this.tweens.add({ targets: gfx, alpha: 0.6, yoyo: true, repeat: -1, duration: 600 });
+
+        // Turret expires when mini-boss dies or after 12s
+        this.time.delayedCall(12000, () => { gfx.destroy(); });
+        if (!this._mbTurretGfx) this._mbTurretGfx = [];
+        this._mbTurretGfx.push(gfx);
+    }
+
+    onMinibossLightningStrike(x, y) {
+        const gfx = this.add.graphics().setDepth(7);
+        // Vertical bolt from sky
+        gfx.lineStyle(5, 0xffff00, 0.9); gfx.beginPath(); gfx.moveTo(x, 0); gfx.lineTo(x + 20, y * 0.4); gfx.lineTo(x - 10, y * 0.7); gfx.lineTo(x, y); gfx.strokePath();
+        gfx.lineStyle(2, 0xffffff, 1);   gfx.beginPath(); gfx.moveTo(x, 0); gfx.lineTo(x + 20, y * 0.4); gfx.lineTo(x - 10, y * 0.7); gfx.lineTo(x, y); gfx.strokePath();
+        gfx.fillStyle(0xffff88, 0.35);   gfx.fillCircle(x, y, 50);
+        this.cameras.main.flash(80, 255, 255, 100);
+        this.tweens.add({ targets: gfx, alpha: 0, duration: 380, onComplete: () => gfx.destroy() });
+        if (this.player?.active) {
+            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y);
+            if (d < 55) {
+                this.player.takeDamage(Math.round((this.boss?.damage ?? 24) * 1.1));
+                this.player.floatText('STRUCK!', '#ffee44');
+            }
+        }
     }
 
     onDropPowerup(x, y, type) {
@@ -1659,6 +1744,10 @@ export default class GameScene extends Phaser.Scene {
         if (this._killjoyTurretGfx) {
             this._killjoyTurretGfx.forEach(g => g?.destroy());
             this._killjoyTurretGfx = null;
+        }
+        if (this._mbTurretGfx) {
+            this._mbTurretGfx.forEach(g => g?.destroy());
+            this._mbTurretGfx = null;
         }
         this._lastPoolDmg = 0;
         if (this._viperBg)     { this._viperBg.destroy();     this._viperBg     = null; }

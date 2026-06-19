@@ -199,9 +199,11 @@ export default class UIScene extends Phaser.Scene {
         this.minibossHpTxt.setVisible(mbActive);
 
         if (mbActive) {
-            const pct = Math.max(0, mbHp / mbMaxHp);
+            const pct      = Math.max(0, mbHp / mbMaxHp);
+            const baseCol  = this.registry.get('minibossBarColor') ?? 0xff8800;
+            const fillCol  = pct > 0.5 ? baseCol : pct > 0.25 ? 0xff4400 : 0xff0000;
             this.minibossFill.width = 496 * pct;
-            this.minibossFill.setFillStyle(pct > 0.5 ? 0xff8800 : pct > 0.25 ? 0xff4400 : 0xff0000);
+            this.minibossFill.setFillStyle(fillCol);
             this.minibossLabel.setText(mbName);
             this.minibossHpTxt.setText(`${Math.ceil(mbHp)} / ${mbMaxHp}`);
         }
