@@ -1476,7 +1476,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         });
 
         // Heal over 4s
-        const healTotal   = (0.15 + this.tier * 0.03) * this.maxHp;
+        const healTotal   = (0.08 + this.tier * 0.02) * this.maxHp;
         const healPerTick = healTotal / 8;
         this.scene.time.addEvent({
             delay: 500, repeat: 7,
@@ -2290,7 +2290,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         if (this.bossType === 'storm'   && this.stormUltActive)    return;
 
         // TITAN armor in phase 1
-        const effective = (this.bossType === 'titan' && this.armorActive) ? Math.ceil(amount * 0.5) : amount;
+        const effective = (this.bossType === 'titan' && this.armorActive) ? Math.ceil(amount * 0.7) : amount;
         this.hp = Math.max(0, this.hp - effective);
 
         this.setTint(0xffffff);
