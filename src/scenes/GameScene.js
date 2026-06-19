@@ -954,8 +954,7 @@ export default class GameScene extends Phaser.Scene {
                 this._checkRoomClear(); // now with 0 enemies the door will spawn
             });
 
-        } else {
-            // Minigame
+        } else if (this.eventType === 'minigame') {
             const RESTRICTIONS = ['no_jump', 'speed_demon', 'time_limit'];
             this._eventRestriction = RESTRICTIONS[Phaser.Math.Between(0, 2)];
             this._minigameWave     = 0;
