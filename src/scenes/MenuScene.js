@@ -130,13 +130,13 @@ export default class MenuScene extends Phaser.Scene {
         btnBg.on('pointerout', () => btnBg.setFillStyle(0xff4655));
         btnBg.on('pointerdown', () => this.startGame());
 
-        // Debug: quick boss test button
-        const testBtn = this.add.text(W / 2, 700, '[ TEST: VIPER BOSS ]', {
-            fontSize: '11px', fontFamily: 'Arial', color: '#336633', letterSpacing: 1,
+        // Debug: quick casino test button
+        const testBtn = this.add.text(W / 2, 700, "[ TEST: CAMMY'S CASINO ]", {
+            fontSize: '11px', fontFamily: 'Arial', color: '#886600', letterSpacing: 1,
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-        testBtn.on('pointerover', () => testBtn.setColor('#00cc44'));
-        testBtn.on('pointerout',  () => testBtn.setColor('#336633'));
-        testBtn.on('pointerdown', () => this.startViperTest());
+        testBtn.on('pointerover', () => testBtn.setColor('#ffd700'));
+        testBtn.on('pointerout',  () => testBtn.setColor('#886600'));
+        testBtn.on('pointerdown', () => this.startCasinoTest());
 
         // Controls hint
         this.add.text(W / 2, 724, 'WASD/ARROWS: Move   SPACE: Jump   Z/CLICK: Shoot   E/SHIFT: Ability', {
@@ -199,10 +199,8 @@ export default class MenuScene extends Phaser.Scene {
         this.scene.start('GameScene');
     }
 
-    startViperTest() {
-        this.registry.set('selectedAgent', this.agents[this.selectedIndex].key);
-        this.registry.set('floor', 10);
-        this.registry.set('forceBossType', 'viper');
-        this.scene.start('GameScene');
+    startCasinoTest() {
+        this.registry.set('coins', 500);
+        this.scene.launch('CasinoScene', { floor: 1, coins: 500 });
     }
 }
