@@ -61,6 +61,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this._powerupInvincible = false;
         this._unlimitedJumps    = false;
         this.shieldHp           = 0;
+        this.maxShieldHp        = 0;
         this.abilityLevel       = 0;
         this._trapTimer         = 0;
         this._trapSpeed         = 0;
@@ -464,7 +465,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'lifedrain': this.lifedrain += 6; break;
             case 'hp_regen':  this.regenActive = true; break;
             case 'shield':
-                this.shieldHp += 2;
+                this.maxShieldHp += 2;
+                this.shieldHp    += 2;
                 this.scene.events.emit('shieldChanged', this.shieldHp);
                 break;
             case 'ricochet':  break; // tracked via this.upgrades array

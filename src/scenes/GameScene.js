@@ -1089,7 +1089,13 @@ export default class GameScene extends Phaser.Scene {
         this._pendingUpgrades  = 0;
         this._puzzleDoorReady  = false;
         this._minigameWave     = 0;
-        if (this.player) this.player.jumpLocked = false;
+        if (this.player) {
+            this.player.jumpLocked = false;
+            if (this.player.maxShieldHp > 0) {
+                this.player.shieldHp = this.player.maxShieldHp;
+                this.events.emit('shieldChanged', this.player.shieldHp);
+            }
+        }
         if (this.scene.isActive('EventScene')) this.scene.stop('EventScene');
         this.registry.set('minigameFailed', false);
         this.registry.set('puzzleExpired',  false);
