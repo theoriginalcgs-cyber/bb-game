@@ -88,6 +88,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Overload upgrade state
         this.overloadLevel      = 0;
         this._overloadCounter   = 0;
+
+        // New upgrade state
+        this.explosiveLevel      = 0;
+        this.executionerLevel    = 0;
+        this.leechShot           = false;
+        this.doubleTap           = false;
+        this._doubleTapCounter   = 0;
+        this.counterStrike       = false;
+        this.counterStrikeActive = false;
+        this.lastStandAvailable  = false;
+        this.lastStandUsed       = false;
     }
 
     setControls(cursors, wasd) {
@@ -267,6 +278,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             finalDmg = Math.round(finalDmg * 1.25);
         }
 
+        // Counter Strike: +60% damage for 3s after taking a hit
+        if (this.counterStrikeActive) {
+            finalDmg = Math.round(finalDmg * 1.6);
+        }
+
         const bullet = bullets.create(x, y, 'bullet');
         if (!bullet) return;
         bullet.setVelocity(vx, vy);
@@ -276,6 +292,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         bullet.origVx    = vx;
         bullet.origVy    = vy;
         bullet.isLifeSteal = this.lifeSteal;
+
+        // Pierce upgrade: bullets pass through enemies
+        if (this.upgrades.includes('pierce')) bullet.piercing = true;
+
+        // Leech Shot: heal on every bullet hit
+        if (this.leechShot) bullet.isLeechShot = true;
 
         // Apply weapon flags
         if (this.agentKey === 'jett' && this.weaponLevel >= 1 && this._weaponShotCounter % 5 === 0) {
@@ -294,6 +316,27 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.time.delayedCall(1400, () => {
             if (bullet && bullet.active) bullet.destroy();
         });
+
+        // Double Tap: every 5th shot fires an instant second bullet at a slight angle
+        if (this.doubleTap) {
+            this._doubleTapCounter = (this._doubleTapCounter + 1) % 5;
+            if (this._doubleTapCounter === 0) {
+                const spread = 0.15;
+                const a2 = angle + spread;
+                const b2 = bullets.create(x, y, 'bullet');
+                if (b2) {
+                    b2.setVelocity(Math.cos(a2) * 720, Math.sin(a2) * 720);
+                    b2.setGravityY(-900);
+                    b2.setRotation(a2);
+                    b2.damage  = finalDmg;
+                    b2.origVx  = Math.cos(a2) * 720;
+                    b2.origVy  = Math.sin(a2) * 720;
+                    if (this.upgrades.includes('pierce')) b2.piercing    = true;
+                    if (this.leechShot)                   b2.isLeechShot = true;
+                    this.scene.time.delayedCall(1400, () => { if (b2?.active) b2.destroy(); });
+                }
+            }
+        }
     }
 
     applyWeaponUpgrade(upgradeId) {
@@ -395,7 +438,31 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.time.delayedCall(140, () => { if (this.active && !this._powerupInvincible) this.clearTint(); });
         this.scene.time.delayedCall(550, () => { this.invincible = false; });
 
+        // Counter Strike: activate damage boost on any hit
+        if (this.counterStrike) {
+            this.counterStrikeActive = true;
+            this.scene.time.delayedCall(3000, () => { if (this.active) this.counterStrikeActive = false; });
+        }
+
         if (this.hp <= 0) {
+            // Last Stand: survive lethal hit once per floor with brief invincibility
+            if (this.lastStandAvailable && !this.lastStandUsed) {
+                this.hp = Math.max(1, Math.round(this.maxHp * 0.15));
+                this.lastStandUsed = true;
+                this.scene.events.emit('hpChanged', this.hp);
+                this.floatText('LAST STAND!', '#ffd700');
+                this.setTint(0xffd700);
+                this.invincible = true;
+                this._powerupInvincible = true;
+                this.scene.time.delayedCall(2000, () => {
+                    if (this.active) {
+                        this.invincible = false;
+                        this._powerupInvincible = false;
+                        this.clearTint();
+                    }
+                });
+                return;
+            }
             if (this.secondWind && !this.secondWindUsed) {
                 this.hp = 1;
                 this.secondWindUsed = true;
@@ -469,9 +536,35 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
                 this.shieldHp    += 2;
                 this.scene.events.emit('shieldChanged', this.shieldHp);
                 break;
-            case 'ricochet':  break; // tracked via this.upgrades array
+            case 'ricochet':    break; // tracked via this.upgrades array
+            case 'pierce':      break; // tracked via this.upgrades array
             case 'overload':
                 this.overloadLevel = Math.min(3, (this.overloadLevel || 0) + 1);
+                break;
+            case 'explosive':
+                this.explosiveLevel++;
+                this.floatText('EXPLOSIVE TIP!', '#ff6600');
+                break;
+            case 'leech_shot':
+                this.leechShot = true;
+                this.floatText('LEECH SHOT!', '#ff69b4');
+                break;
+            case 'executioner':
+                this.executionerLevel++;
+                this.floatText('EXECUTIONER!', '#9c27b0');
+                break;
+            case 'counter':
+                this.counterStrike = true;
+                this.floatText('COUNTER STRIKE!', '#e91e63');
+                break;
+            case 'last_stand':
+                this.lastStandAvailable = true;
+                this.lastStandUsed = false;
+                this.floatText('LAST STAND!', '#ffd700');
+                break;
+            case 'double_tap':
+                this.doubleTap = true;
+                this.floatText('DOUBLE TAP!', '#00bcd4');
                 break;
             case 'full_heal':
                 this.hp = this.maxHp;

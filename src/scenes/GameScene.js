@@ -149,6 +149,11 @@ export default class GameScene extends Phaser.Scene {
                 enemy.armorMod = origArmor + (1 - origArmor) * this.player.armorPierce;
             }
 
+            // Executioner: bonus damage to enemies below 40% HP
+            if (this.player.executionerLevel > 0 && enemy.hp < enemy.maxHp * 0.4) {
+                dmg = Math.round(dmg * (1 + this.player.executionerLevel * 0.2));
+            }
+
             enemy.hit(dmg, ls);
             enemy.armorMod = origArmor;
             if (isIce) enemy.applySlowEffect(3000);
@@ -158,6 +163,9 @@ export default class GameScene extends Phaser.Scene {
 
             // Reyna Tier-1 weapon: Drain Round — heal 2 HP per bullet hit
             if (bullet.isDrain && this.player.active) this.player.gainHp(2);
+
+            // Leech Shot upgrade: heal 1 HP per bullet hit
+            if (bullet.isLeechShot && this.player.active) this.player.gainHp(1);
 
             // Phoenix Tier-1 weapon: Hot Rounds — small fire zone on hit
             if (bullet.isHotRound && enemy.active) {
@@ -169,6 +177,17 @@ export default class GameScene extends Phaser.Scene {
                     if (Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 52) {
                         e.hit(Math.round(dmg * 0.4), false);
                     }
+                });
+            }
+
+            // Explosive Tip: 30%/60% chance AoE explosion (20 dmg within 60px)
+            if (this.player.explosiveLevel > 0 && enemy.active && Math.random() < this.player.explosiveLevel * 0.3) {
+                const ex = enemy.x, ey = enemy.y;
+                const spark = this.add.circle(ex, ey, 10, 0xff6600, 0.9);
+                this.tweens.add({ targets: spark, scaleX: 5, scaleY: 5, alpha: 0, duration: 260, onComplete: () => spark.destroy() });
+                this.enemyGroup.getChildren().forEach(e => {
+                    if (!e.active || e === enemy) return;
+                    if (Phaser.Math.Distance.Between(ex, ey, e.x, e.y) < 60) e.hit(20, false);
                 });
             }
 
@@ -771,6 +790,21 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: msg, alpha: 0, y: 140, duration: 2200, onComplete: () => msg.destroy() });
     }
 
+    _playerUpgradeState() {
+        if (!this.player) return {};
+        return {
+            multishotLevel:   this.player.multishotLevel,
+            overloadLevel:    this.player.overloadLevel,
+            critChance:       this.player.critChance,
+            attackCdMax:      this.player.attackCdMax,
+            abilityCdMax:     this.player.abilityCdMax,
+            upgrades:         [...this.player.upgrades],
+            explosiveLevel:   this.player.explosiveLevel,
+            executionerLevel: this.player.executionerLevel,
+            regenActive:      this.player.regenActive,
+        };
+    }
+
     openUpgradeScreen() {
         this.showingUpgrade = true;
         const isBossFloor   = this.floor % 10 === 0;
@@ -797,7 +831,7 @@ export default class GameScene extends Phaser.Scene {
             this.scene.launch('AbilityUpgradeScene', { agentKey: this.agentKey, abilityLevel: newLevel });
             this.scene.pause();
         } else {
-            this.scene.launch('UpgradeScene', { floor: this.floor });
+            this.scene.launch('UpgradeScene', { floor: this.floor, playerState: this._playerUpgradeState() });
             this.scene.pause();
         }
     }
@@ -835,7 +869,7 @@ export default class GameScene extends Phaser.Scene {
             // Ability scene confirmed — apply and show regular upgrades next
             this.registry.set('pickedAbilityLevel', null);
             this._applyAbilityUpgrade(abilityLevel);
-            this.scene.launch('UpgradeScene', { floor: this.floor });
+            this.scene.launch('UpgradeScene', { floor: this.floor, playerState: this._playerUpgradeState() });
             this.scene.pause();
 
         } else if (upgradeId) {
@@ -848,7 +882,7 @@ export default class GameScene extends Phaser.Scene {
             // If puzzle gave a bonus pick, show another upgrade card
             if (this._pendingUpgrades > 1) {
                 this._pendingUpgrades--;
-                this.scene.launch('UpgradeScene', { floor: this.floor });
+                this.scene.launch('UpgradeScene', { floor: this.floor, playerState: this._playerUpgradeState() });
                 this.scene.pause();
                 return;
             }
@@ -1095,6 +1129,7 @@ export default class GameScene extends Phaser.Scene {
                 this.player.shieldHp = this.player.maxShieldHp;
                 this.events.emit('shieldChanged', this.player.shieldHp);
             }
+            if (this.player.lastStandAvailable) this.player.lastStandUsed = false;
         }
         if (this.scene.isActive('EventScene')) this.scene.stop('EventScene');
         this.registry.set('minigameFailed', false);
