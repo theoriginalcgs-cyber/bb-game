@@ -88,7 +88,7 @@ export default class ShopScene extends Phaser.Scene {
             const pool = [...availableExclusive];
             const idx  = Phaser.Math.Between(0, pool.length - 1);
             const item = { ...pool[idx] };
-            item.price = Math.round(item.basePrice * (1 + this.floor * 0.05));
+            item.price = item.basePrice;
             items.push(item);
         }
 
@@ -97,7 +97,7 @@ export default class ShopScene extends Phaser.Scene {
         while (items.length < 3 && stdPool.length > 0) {
             const idx  = Phaser.Math.Between(0, stdPool.length - 1);
             const item = { ...stdPool.splice(idx, 1)[0] };
-            item.price = Math.round(item.basePrice * (1 + this.floor * 0.05));
+            item.price = item.basePrice;
             items.push(item);
         }
 

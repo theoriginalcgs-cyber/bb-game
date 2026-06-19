@@ -712,7 +712,7 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
-        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.ceil(this.floor / 5);
+        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.max(5, Math.ceil(this.floor / 2));
         this.coins += coinAmt;
         this.registry.set('coins', this.coins);
         if (this.player.deathmark) this.player.deathmarkReady = true;
