@@ -4,8 +4,9 @@ import Boss from '../entities/Boss.js';
 import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
 import { StormMusic } from '../audio/StormMusic.js';
-import { TitanMusic } from '../audio/TitanMusic.js';
-import { BlazeMusic } from '../audio/BlazeMusic.js';
+import { TitanMusic }   from '../audio/TitanMusic.js';
+import { BlazeMusic }   from '../audio/BlazeMusic.js';
+import { PhantomMusic } from '../audio/PhantomMusic.js';
 
 const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm', 'killjoy', 'chamber', 'kayo'];
 const ROOM_W  = 1440;
@@ -79,6 +80,7 @@ export default class GameScene extends Phaser.Scene {
         this.bossOrbs       = this.physics.add.group();
         this.chamberTraps  = this.physics.add.staticGroup();
         this.kayoKnives    = this.physics.add.staticGroup();
+        this.killjoyRods   = this.physics.add.staticGroup();
 
         // Kayo suppression state
         this.kayoSuppressed = false;
@@ -319,6 +321,13 @@ export default class GameScene extends Phaser.Scene {
             this.time.delayedCall(4000, () => { this.kayoSuppressed = false; });
         });
 
+        // Killjoy detainment rods: slow player on contact
+        this.physics.add.overlap(this.player, this.killjoyRods, (player, rod) => {
+            if (rod._rodCd && rod._rodCd > this.time.now) return;
+            rod._rodCd = this.time.now + 2800;
+            this.player.applyTrap(2500);
+        });
+
         this.physics.add.overlap(this.player, this.healthDrops, (player, drop) => {
             drop.destroy();
             this.player.gainHp(28);
@@ -347,9 +356,10 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('spawnIceOrb',         this.onSpawnIceOrb,         this);
         this.events.on('bossKilled',          () => {
             this.bossMusic.stop();
-            if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
-            if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
-            if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
+            if (this._stormMusic)   { this._stormMusic.stop();   this._stormMusic   = null; }
+            if (this._titanMusic)   { this._titanMusic.stop();   this._titanMusic   = null; }
+            if (this._blazeMusic)   { this._blazeMusic.stop();   this._blazeMusic   = null; }
+            if (this._phantomMusic) { this._phantomMusic.stop(); this._phantomMusic = null; }
         }, this);
         this.events.on('lifeStealKill',       (amt) => this.player.gainHp(amt), this);
         this.events.on('hpChanged',           (hp)  => this.registry.set('playerHp', hp), this);
@@ -361,7 +371,10 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('kayoKnifeSpawn',      this.onKayoKnifeSpawn,      this);
         this.events.on('kayoUltStart',        this.onKayoUltStart,        this);
         this.events.on('kayoUltEnd',          this.onKayoUltEnd,          this);
+        this.events.on('kayoEmpBlast',        this.onKayoEmpBlast,        this);
         this.events.on('killjoyTurretsPlaced',this.onKilljoyTurretsPlaced,this);
+        this.events.on('killjoyMollyLand',    this.onKilljoyMollyLand,    this);
+        this.events.on('killjoyDetainRod',    this.onKilljoyDetainRod,    this);
         this.events.on('shieldChanged', (val) => this.registry.set('playerShield', val), this);
         this.events.on('temporalFieldActive', () => {
             this.enemyGroup.getChildren().forEach(e => {
@@ -418,9 +431,10 @@ export default class GameScene extends Phaser.Scene {
             LevelGenerator.generateBossRoom(
                 this, this.groundGroup, this.platformGroup, roomIndex, startX, this.currentBossType
             );
-            if (this.currentBossType === 'viper') this._spawnViperArena(startX);
-            if (this.currentBossType === 'storm') this._spawnStormArena(startX);
-            if (this.currentBossType === 'titan') this._spawnTitanArena(startX);
+            if (this.currentBossType === 'viper')   this._spawnViperArena(startX);
+            if (this.currentBossType === 'storm')   this._spawnStormArena(startX);
+            if (this.currentBossType === 'titan')   this._spawnTitanArena(startX);
+            if (this.currentBossType === 'phantom') this._spawnPhantomArena(startX);
             this.spawnBoss(startX + ROOM_W / 2, 400);
 
         } else if (isMiniBoss) {
@@ -520,7 +534,7 @@ export default class GameScene extends Phaser.Scene {
         boss.setDepth(2); // above bgtile (0) so clouds/effects at depth 1 show correctly
         this.enemyCount = 1;
 
-        if (type !== 'storm' && type !== 'titan' && type !== 'blaze') this.bossMusic.play(type);
+        if (type !== 'storm' && type !== 'titan' && type !== 'blaze' && type !== 'phantom') this.bossMusic.play(type);
         if (type === 'titan') {
             if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
             this._titanMusic = new TitanMusic();
@@ -530,6 +544,11 @@ export default class GameScene extends Phaser.Scene {
             if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
             this._blazeMusic = new BlazeMusic();
             this._blazeMusic.start();
+        }
+        if (type === 'phantom') {
+            if (this._phantomMusic) { this._phantomMusic.stop(); this._phantomMusic = null; }
+            this._phantomMusic = new PhantomMusic();
+            this._phantomMusic.start();
         }
 
         const colors = { viper:'#cc44ff', blaze:'#ff6600', phantom:'#00e5ff', titan:'#cc8833', storm:'#ffff00', killjoy:'#ffee00', chamber:'#ffe082', kayo:'#80deea' };
@@ -745,17 +764,101 @@ export default class GameScene extends Phaser.Scene {
         this.kayoSuppressed = false;
     }
 
+    onKayoEmpBlast() {
+        // Temporarily halve player fire rate for 3.5 s
+        if (!this.player?.active) return;
+        const prev = this.player.attackCdMax;
+        this.player.attackCdMax = Math.round(prev * 1.65);
+        this.player.floatText('EMP DISRUPTED!', '#42a5f5');
+        this.cameras.main.shake(160, 0.008);
+        this.time.delayedCall(3500, () => {
+            if (this.player?.active) this.player.attackCdMax = prev;
+        });
+    }
+
+    onKilljoyMollyLand(x, y) {
+        // Electrical AOE field that pulses damage + teal visual for 3s
+        const gfx = this.add.graphics().setDepth(4);
+        const dur = 3200;
+        const pulseMs = 500;
+        let elapsed = 0;
+        const draw = (bright) => {
+            gfx.clear();
+            gfx.fillStyle(0x00c8a0, bright ? 0.28 : 0.14);  gfx.fillCircle(x, y, 55);
+            gfx.fillStyle(0xffe033, bright ? 0.40 : 0.22);  gfx.fillCircle(x, y, 34);
+            gfx.fillStyle(0x00ffcc, bright ? 0.55 : 0.30);  gfx.fillCircle(x, y, 16);
+            gfx.lineStyle(2, 0xffe033, bright ? 0.9 : 0.4); gfx.strokeCircle(x, y, 55);
+        };
+        draw(true);
+
+        const tick = this.time.addEvent({
+            delay: pulseMs,
+            repeat: Math.ceil(dur / pulseMs),
+            callback: () => {
+                elapsed += pulseMs;
+                const bright = (elapsed / pulseMs) % 2 < 1;
+                draw(bright);
+                // Damage player if inside field
+                if (this.player?.active) {
+                    const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y);
+                    if (d < 55) {
+                        this.player.takeDamage(Math.round((this.boss?.damage ?? 18) * 0.45));
+                        this.player.floatText('ELECTRIC!', '#ffe033');
+                    }
+                }
+                if (elapsed >= dur) { tick.remove(); gfx.destroy(); }
+            },
+        });
+    }
+
+    onKilljoyDetainRod(x, y) {
+        // Draw a glowing detainment rod and add a hitbox
+        const gfx = this.add.graphics().setDepth(5);
+        const rodH = 72;
+        // Rod body
+        gfx.fillStyle(0x111a1a, 0.9);     gfx.fillRect(x - 6, y - rodH, 12, rodH);
+        gfx.fillStyle(0xffe033, 0.85);    gfx.fillRect(x - 8, y - rodH, 16, 6);
+        gfx.fillStyle(0xffe033, 0.85);    gfx.fillRect(x - 8, y - 6,    16, 6);
+        gfx.fillStyle(0x00c8a0, 0.70);    gfx.fillRect(x - 4, y - rodH + 6, 8, rodH - 12);
+        gfx.fillStyle(0x44ffe0, 1);       gfx.fillCircle(x, y - rodH / 2, 5);
+        // Slow field visual
+        gfx.fillStyle(0xffe033, 0.10);    gfx.fillCircle(x, y, 60);
+        gfx.lineStyle(2, 0xffe033, 0.45); gfx.strokeCircle(x, y, 60);
+
+        // Pulse tween
+        this.tweens.add({ targets: gfx, alpha: 0.5, yoyo: true, repeat: -1, duration: 500 });
+
+        // Physics hitbox for slow zone
+        const rod = this.killjoyRods.create(x, y, null);
+        if (rod) {
+            rod.setAlpha(0);
+            rod.setSize(120, 120);
+            rod.setImmovable(true);
+            rod.refreshBody();
+        }
+
+        // Rods expire after 6s
+        this.time.delayedCall(6000, () => {
+            gfx.destroy();
+            if (rod?.active) rod.destroy();
+        });
+    }
+
     onKilljoyTurretsPlaced(positions) {
-        // Draw visual turret indicators on the ground
         positions.forEach(tp => {
-            const g = this.add.graphics();
-            g.fillStyle(0xffee00, 0.85);
-            g.fillRect(tp.x - 12, tp.y - 18, 24, 20);
-            g.fillStyle(0x888800, 0.9);
-            g.fillRect(tp.x - 8, tp.y - 14, 16, 12);
-            g.fillStyle(0xffee00, 1);
-            g.fillCircle(tp.x, tp.y - 18, 5);
-            // Store reference for cleanup
+            const g = this.add.graphics().setDepth(4);
+            // Base platform
+            g.fillStyle(0x111a1a, 0.95);  g.fillRect(tp.x - 16, tp.y - 22, 32, 22);
+            // Yellow accent trim
+            g.fillStyle(0xffe033, 0.9);   g.fillRect(tp.x - 16, tp.y - 22, 32, 4);
+            g.fillStyle(0xffe033, 0.9);   g.fillRect(tp.x - 16, tp.y - 4,  32, 4);
+            // Teal barrel
+            g.fillStyle(0x00c8a0, 1);     g.fillRect(tp.x - 4,  tp.y - 18, 22, 8);
+            // Core glow
+            g.fillStyle(0x44ffe0, 1);     g.fillCircle(tp.x - 2, tp.y - 14, 5);
+
+            this.tweens.add({ targets: g, alpha: 0.7, yoyo: true, repeat: -1, duration: 700 });
+
             if (!this._killjoyTurretGfx) this._killjoyTurretGfx = [];
             this._killjoyTurretGfx.push(g);
         });
@@ -1257,6 +1360,96 @@ export default class GameScene extends Phaser.Scene {
         this._titanBg = bg;
     }
 
+    _spawnPhantomArena(startX) {
+        const GY = GROUND_Y;
+        const cx = startX + ROOM_W / 2;
+        const bg = this.add.graphics().setDepth(-3);
+
+        // Near-void background
+        bg.fillStyle(0x02000a);
+        bg.fillRect(startX, 0, ROOM_W, GY);
+        // Upper deep purple haze
+        bg.fillStyle(0x08001a, 0.70);
+        bg.fillRect(startX, 0, ROOM_W, GY * 0.65);
+
+        // Central void vortex — concentric dark circles
+        const vortexY = GY * 0.38;
+        [[320, 0x060015, 0.60], [240, 0x0c0028, 0.50], [170, 0x140040, 0.40],
+         [110, 0x1e0060, 0.30], [65,  0x280080, 0.20]].forEach(([r, col, a]) => {
+            bg.fillStyle(col, a); bg.fillCircle(cx, vortexY, r);
+        });
+
+        // Spectral energy rings (faint outline rings around the vortex)
+        [380, 320, 250, 185].forEach((r, i) => {
+            bg.lineStyle(1.5, 0x00c8ee, 0.04 + i * 0.015);
+            bg.strokeCircle(cx, vortexY, r);
+        });
+
+        // Floating spectral orbs scattered in the background
+        [
+            [cx - 520, 100, 20], [cx + 460, 140, 16], [cx - 320, 260, 26],
+            [cx + 380, 220, 18], [cx - 200,  70, 12], [cx + 300,  80, 22],
+            [cx - 580, 380, 22], [cx + 520, 360, 18], [cx -  80, 480, 14],
+            [cx + 200, 500, 16], [cx - 420, 480, 20], [cx + 420, 440, 24],
+        ].forEach(([ox, oy, r]) => {
+            bg.fillStyle(0x004466, 0.10); bg.fillCircle(ox, oy, r + 8);
+            bg.fillStyle(0x009aaa, 0.16); bg.fillCircle(ox, oy, r);
+            bg.fillStyle(0x00c8ee, 0.22); bg.fillCircle(ox, oy, r * 0.55);
+            bg.fillStyle(0x66eeff, 0.35); bg.fillCircle(ox, oy, r * 0.25);
+        });
+
+        // Faint aurora-like vertical streaks in upper area
+        for (let i = 0; i < 10; i++) {
+            const sx = startX + i * (ROOM_W / 10) + 30;
+            const w  = 18 + Math.abs(Math.sin(i * 1.618)) * 28;
+            bg.fillStyle(0x180040, 0.12);
+            bg.fillRect(sx - w / 2, 0, w, GY * 0.52);
+        }
+
+        // Ghostly silhouette impressions (faint humanoid shapes in the deep background)
+        [[cx - 500, 120], [cx + 420, 160], [cx - 210, 300], [cx + 280, 270]].forEach(([gx, gy]) => {
+            bg.fillStyle(0x0a0020, 0.20);
+            bg.fillEllipse(gx, gy, 24, 66);
+            bg.fillStyle(0x0a0020, 0.16);
+            bg.fillCircle(gx, gy - 42, 13);
+        });
+
+        // Void ground treatment
+        bg.fillStyle(0x050012);
+        bg.fillRect(startX, GY - 24, ROOM_W, 24);
+        // Spectral cracks in the ground
+        bg.fillStyle(0x00c8ee, 0.14);
+        for (let x = startX + 60; x < startX + ROOM_W - 60; x += 110) {
+            bg.fillRect(x, GY - 14, 55, 3);
+            bg.fillStyle(0x44e8ff, 0.18);
+            bg.fillRect(x + 8, GY - 10, 38, 2);
+            bg.fillStyle(0x00c8ee, 0.14);
+        }
+
+        // Tint tiles to deep void colours
+        this.groundGroup.getChildren().forEach(t => {
+            if (t.x >= startX && t.x < startX + ROOM_W) t.setTint(0x080018);
+        });
+        this.platformGroup.getChildren().forEach(t => {
+            if (t.x >= startX && t.x < startX + ROOM_W) t.setTint(0x100030);
+        });
+
+        // Invisible containment walls
+        const tileW = 64;
+        const wallL = startX + 32;
+        const wallR = startX + ROOM_W - 32;
+        for (let y = tileW / 2; y < GY + tileW; y += tileW) {
+            for (const wx of [wallL, wallR]) {
+                const w = this.bossWalls.create(wx, y, 'ground_void');
+                w.setImmovable(true);
+                w.setAlpha(0);
+                w.refreshBody();
+            }
+        }
+
+        this._phantomBg = bg;
+    }
+
     _stormFlickerLoop(gfx, startX) {
         if (!gfx || !gfx.active) return;
         gfx.clear();
@@ -1438,11 +1631,14 @@ export default class GameScene extends Phaser.Scene {
         if (this._titanBg)         { this._titanBg.destroy();          this._titanBg         = null; }
         if (this._titanMusic)      { this._titanMusic.stop();          this._titanMusic      = null; }
         if (this._blazeMusic)      { this._blazeMusic.stop();          this._blazeMusic      = null; }
+        if (this._phantomBg)       { this._phantomBg.destroy();        this._phantomBg       = null; }
+        if (this._phantomMusic)    { this._phantomMusic.stop();        this._phantomMusic    = null; }
         this.viperOrbs.clear(true, true);
         this.blazeFireZones.clear(true, true);
         this.bossOrbs.clear(true, true);
         this.chamberTraps.clear(true, true);
         this.kayoKnives.clear(true, true);
+        this.killjoyRods.clear(true, true);
         this.kayoSuppressed    = false;
         this.eventType         = null;
         this._eventRestriction = null;
@@ -1484,8 +1680,10 @@ export default class GameScene extends Phaser.Scene {
         this.bossMusic.stop();
         if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
         if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
-        if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
-        if (this._titanBg)    { this._titanBg.destroy();          this._titanBg    = null; }
+        if (this._blazeMusic)   { this._blazeMusic.stop();   this._blazeMusic   = null; }
+        if (this._phantomMusic) { this._phantomMusic.stop(); this._phantomMusic = null; }
+        if (this._titanBg)      { this._titanBg.destroy();   this._titanBg      = null; }
+        if (this._phantomBg)    { this._phantomBg.destroy(); this._phantomBg    = null; }
         this.registry.set('finalFloor', this.floor);
         this.registry.set('finalAgent', this.agentKey);
         this.cameras.main.shake(400, 0.02);

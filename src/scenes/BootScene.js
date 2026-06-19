@@ -1237,6 +1237,17 @@ export default class BootScene extends Phaser.Scene {
         this._drawBossViper();
         this._drawBossBlaze();
         this._drawBossPhantom();
+        // Void zone hazard texture for Phantom phase 3
+        {
+            const vz = this.make.graphics({ x: 0, y: 0, add: false });
+            vz.fillStyle(0x110022, 0.88); vz.fillCircle(32, 32, 32);
+            vz.fillStyle(0x220044, 0.72); vz.fillCircle(32, 32, 25);
+            vz.fillStyle(0x440088, 0.52); vz.fillCircle(32, 32, 17);
+            vz.fillStyle(0x6600aa, 0.34); vz.fillCircle(32, 32, 10);
+            vz.fillStyle(0x00c8ee, 0.22); vz.fillCircle(32, 32, 5);
+            vz.generateTexture('boss_void_zone', 64, 64);
+            vz.destroy();
+        }
         this._drawBossTitan();
         this._drawBossStorm();
         this._drawBossKilljoy();
@@ -1301,27 +1312,30 @@ export default class BootScene extends Phaser.Scene {
         sw.generateTexture('boss_shockwave', 52, 10);
         sw.destroy();
 
-        // KILLJOY bullet (yellow nano-swarm orb)
+        // KILLJOY bullet (yellow-teal nano-swarm orb)
         const bkj = this.make.graphics({ x: 0, y: 0, add: false });
-        bkj.fillStyle(0x665500); bkj.fillCircle(10,10,10);
-        bkj.fillStyle(0xffee00); bkj.fillCircle(10,10,6);
-        bkj.fillStyle(0xffff99); bkj.fillCircle(10,10,3);
+        bkj.fillStyle(0x003322); bkj.fillCircle(10,10,10);
+        bkj.fillStyle(0x00c8a0); bkj.fillCircle(10,10,7);
+        bkj.fillStyle(0xffe033); bkj.fillCircle(10,10,4);
+        bkj.fillStyle(0xffffff); bkj.fillCircle(10,10,2);
         bkj.generateTexture('boss_bullet_killjoy', 20, 20);
         bkj.destroy();
 
-        // CHAMBER bullet (gold sniper round)
+        // CHAMBER bullet — elongated gold sniper/pistol round
         const bch = this.make.graphics({ x: 0, y: 0, add: false });
-        bch.fillStyle(0xb8860b); bch.fillRect(0,4,22,6);
-        bch.fillStyle(0xffe082); bch.fillRect(4,5,14,4);
-        bch.fillStyle(0xffffff); bch.fillRect(18,5,4,4);
+        bch.fillStyle(0x7a5800); bch.fillRect(0, 3, 22, 8);
+        bch.fillStyle(0xffd700); bch.fillRect(2, 4, 16, 6);
+        bch.fillStyle(0xffee88); bch.fillRect(4, 5, 10, 4);
+        bch.fillStyle(0xffffff); bch.fillRect(16, 4, 6, 6);  // tip
         bch.generateTexture('boss_bullet_chamber', 22, 14);
         bch.destroy();
 
-        // KAYO bullet (cyan energy pulse)
+        // KAYO bullet — blue energy pulse with silver core
         const bko = this.make.graphics({ x: 0, y: 0, add: false });
-        bko.fillStyle(0x004d60); bko.fillCircle(10,10,10);
-        bko.fillStyle(0x00bcd4); bko.fillCircle(10,10,6);
-        bko.fillStyle(0x80deea); bko.fillCircle(10,10,3);
+        bko.fillStyle(0x0d2a5e); bko.fillCircle(10,10,10);
+        bko.fillStyle(0x1565c0); bko.fillCircle(10,10,7);
+        bko.fillStyle(0x42a5f5); bko.fillCircle(10,10,4);
+        bko.fillStyle(0xcfd8dc); bko.fillCircle(10,10,2);
         bko.generateTexture('boss_bullet_kayo', 20, 20);
         bko.destroy();
 
@@ -1568,79 +1582,103 @@ export default class BootScene extends Phaser.Scene {
         g.destroy();
     }
 
-    // ── PHANTOM — spectral wraith with wispy cloak ───────────────
+    // ── PHANTOM — dark void wraith, polygon-based spectral design ────
     _drawBossPhantom() {
         const g = this.make.graphics({ x: 0, y: 0, add: false });
-        const cloak = 0x004d57, cloakL = 0x006064;
-        const spec = 0x00e5ff, specL = 0xe0f7fa;
-        const mask = 0x002b36;
+        const FP = (coords, col, a = 1) => {
+            g.fillStyle(col, a);
+            const pts = [];
+            for (let i = 0; i < coords.length; i += 2) pts.push({ x: coords[i], y: coords[i + 1] });
+            g.fillPoints(pts, true);
+        };
 
-        // Wispy hood tips
-        g.fillStyle(cloakL);
-        g.fillRect(12, 0,  6,  4);
-        g.fillRect(24, 0,  8,  6);
-        g.fillRect(38, 0,  8,  6);
-        g.fillRect(52, 0,  8,  4);
-        g.fillRect(62, 0,  6,  4);
-        // Hood
-        g.fillStyle(cloakL);
-        g.fillRect(10, 2, 60, 30);
-        g.fillStyle(cloak);
-        g.fillRect(12, 4, 56, 26);
-        // Blank spectral mask face
-        g.fillStyle(0x004d57);
-        g.fillRect(20, 6, 40, 26);
-        g.fillStyle(mask);
-        g.fillRect(22, 8, 36, 22);
-        // Glowing hollow eyes
-        g.fillStyle(spec);
-        g.fillRect(24,14, 12,  8);
-        g.fillRect(44,14, 12,  8);
-        g.fillStyle(specL);
-        g.fillRect(26,15,  8,  6);
-        g.fillRect(46,15,  8,  6);
-        g.fillStyle(0xffffff);
-        g.fillRect(28,16,  4,  4);
-        g.fillRect(48,16,  4,  4);
-        // Cloak body
-        g.fillStyle(cloakL);
-        g.fillRect(4, 30, 72, 48);
-        g.fillStyle(cloak);
-        g.fillRect(8, 32, 64, 44);
-        // Spectral glow channel through body
-        g.fillStyle(spec);
-        g.fillRect(30,32, 20, 40);
-        g.fillStyle(cloakL);
-        g.fillRect(32,34, 16, 36);
-        // Ghostly sleeve arms
-        g.fillStyle(cloakL);
-        g.fillRect(0, 28, 10, 34);
-        g.fillRect(70,28, 18, 34);
-        g.fillStyle(spec);
-        g.fillRect(0, 58, 10,  6);    // L wisp
-        g.fillRect(70,58, 18,  6);    // R wisp
-        // Floating ghost orb weapon
-        g.fillStyle(spec);
-        g.fillRect(72,16, 16, 16);
-        g.fillStyle(specL);
-        g.fillRect(74,18, 12, 12);
-        g.fillStyle(0xffffff);
-        g.fillRect(76,20,  8,  8);
-        g.fillStyle(spec);
-        g.fillRect(78,22,  4,  4);
-        // Wispy jagged bottom
-        g.fillStyle(cloakL);
-        g.fillRect(8, 76, 12, 20);
-        g.fillRect(24,78, 10, 18);
-        g.fillRect(38,76, 10, 20);
-        g.fillRect(52,78, 10, 18);
-        g.fillRect(66,76, 12, 20);
-        g.fillStyle(spec);
-        g.fillRect(9, 90,  4,  6);
-        g.fillRect(25,92,  4,  4);
-        g.fillRect(39,90,  4,  6);
-        g.fillRect(53,92,  4,  4);
-        g.fillRect(67,90,  4,  6);
+        // Color palette — void wraith aesthetic
+        const void_  = 0x01000a;  // near-void black
+        const cloak  = 0x0c0020;  // deep purple-black
+        const cloakL = 0x1e0050;  // dark purple
+        const cloakH = 0x300080;  // visible edge highlight
+        const specD  = 0x005566;  // dim cyan
+        const spec   = 0x00c8ee;  // spectral cyan
+        const specB  = 0x44e8ff;  // bright cyan
+        const eye    = 0x99ffff;  // eye glow
+
+        // ── HOOD (jagged crown, sweeping shape) ───────────────────────────
+        // Outer hood with jagged crown points — cloakH highlight
+        FP([6,10, 10,4, 16,8, 24,0, 30,6, 38,2, 44,4, 50,2, 58,6, 64,0, 72,8, 78,4, 82,10,
+            84,22, 80,36, 66,42, 44,44, 22,42, 8,36, 4,22], cloakH);
+        // Main hood fill — cloakL
+        FP([8,10, 12,5, 18,8, 26,2, 32,7, 40,3, 44,5, 48,3, 56,7, 62,2, 70,8, 76,5, 80,10,
+            82,22, 78,35, 66,41, 44,43, 22,41, 10,35, 6,22], cloakL);
+        // Inner hood shadow
+        FP([12,11, 16,7, 24,9, 44,9, 64,9, 72,7, 76,11, 78,22, 74,34, 66,40, 44,42, 22,40, 14,34, 10,22], cloak);
+        // Face void (deep dark opening within the hood shadow)
+        FP([20,13, 24,11, 44,11, 64,11, 68,13, 70,24, 66,36, 44,41, 22,36, 18,24], void_);
+
+        // ── EYES (hollow glowing void sockets) ───────────────────────────
+        // Left eye
+        FP([20,15, 24,13, 31,13, 37,17, 36,23, 31,26, 24,26, 20,22], specD);
+        FP([22,16, 26,14, 31,14, 35,18, 34,22, 30,25, 25,25, 22,21], spec);
+        FP([24,17, 27,15, 31,15, 33,18, 33,22, 30,24, 27,24, 24,21], specB);
+        g.fillStyle(eye);    g.fillRect(26,17, 5,5);
+        g.fillStyle(0xffffff, 0.9); g.fillRect(27,18, 3,3);
+
+        // Right eye (mirrored)
+        FP([51,15, 57,13, 64,13, 68,17, 68,23, 64,26, 57,26, 51,22], specD);
+        FP([53,16, 57,14, 64,15, 66,18, 66,22, 63,25, 57,25, 54,21], spec);
+        FP([55,17, 58,15, 62,15, 64,18, 64,22, 61,24, 58,24, 55,21], specB);
+        g.fillStyle(eye);    g.fillRect(57,17, 5,5);
+        g.fillStyle(0xffffff, 0.9); g.fillRect(58,18, 3,3);
+
+        // ── CLOAK BODY (wide sweeping form) ──────────────────────────────
+        // Outer cloak edge highlights
+        FP([0,36, 2,32, 4,36, 4,76, 0,80], cloakH);
+        FP([88,36, 86,32, 84,36, 84,76, 88,80], cloakH);
+        // Main cloak fill
+        FP([4,36, 84,36, 84,76, 4,76], cloakL);
+        // Inner shadow
+        FP([8,38, 80,38, 80,74, 8,74], cloak);
+        // Deep left shadow
+        FP([8,40, 20,38, 20,74, 8,74], void_, 0.55);
+        // Deep right shadow
+        FP([68,38, 80,40, 80,74, 68,74], void_, 0.45);
+
+        // ── SPECTRAL CORE (subtle internal glow through chest) ────────────
+        FP([34,40, 42,38, 46,38, 54,40, 56,54, 50,64, 44,66, 38,64, 32,54], specD, 0.38);
+        FP([36,42, 42,40, 46,40, 52,42, 54,54, 49,62, 44,64, 39,62, 34,54], spec,  0.18);
+        g.fillStyle(specB, 0.10); g.fillRect(39,44, 10,18);
+
+        // ── GHOST WISP ARMS ───────────────────────────────────────────────
+        // Left arm wisp
+        FP([0,38, 4,34, 8,38, 6,54, 2,58, 0,52], cloakL);
+        FP([1,39, 4,36, 7,39, 5,52, 1,56], cloak);
+        g.fillStyle(spec, 0.28); g.fillRect(0,52, 5,6);
+        g.fillStyle(specB, 0.18); g.fillRect(1,55, 3,3);
+        // Right arm wisp
+        FP([88,38, 84,34, 80,38, 82,54, 86,58, 88,52], cloakL);
+        FP([87,39, 84,36, 81,39, 83,52, 87,56], cloak);
+        g.fillStyle(spec, 0.28); g.fillRect(83,52, 5,6);
+        g.fillStyle(specB, 0.18); g.fillRect(84,55, 3,3);
+
+        // ── TORN BOTTOM (irregular polygon tears draping down) ────────────
+        FP([ 4,76, 10,78, 12,96,  4,92,  2,84], cloakL);  FP([ 5,77,  9,78, 10,92,  4,90], cloak);
+        g.fillStyle(spec, 0.20); g.fillRect(4,84, 5,10);
+
+        FP([18,76, 24,78, 26,96, 18,90, 14,84], cloakL);  FP([20,77, 23,78, 24,92, 18,88], cloak);
+        g.fillStyle(specB, 0.14); g.fillRect(19,88, 4,6);
+
+        FP([32,76, 38,78, 40,96, 30,94, 28,82], cloakL);  FP([34,77, 37,78, 38,92, 31,90], cloak);
+        g.fillStyle(spec, 0.22); g.fillRect(33,84, 5,10);
+
+        FP([44,76, 50,78, 52,96, 42,96, 40,82], cloakL);  FP([45,77, 49,78, 50,92, 43,92], cloak);
+
+        FP([56,76, 62,78, 64,96, 54,92, 52,82], cloakL);  FP([58,77, 61,78, 62,92, 55,90], cloak);
+        g.fillStyle(spec, 0.20); g.fillRect(56,86, 5,8);
+
+        FP([68,76, 74,78, 76,94, 68,90, 64,82], cloakL);  FP([70,77, 73,78, 74,90, 68,88], cloak);
+        g.fillStyle(specB, 0.14); g.fillRect(69,84, 4,8);
+
+        FP([78,76, 84,78, 86,92, 78,90, 76,82], cloakL);  FP([80,77, 83,78, 84,90, 79,88], cloak);
+        g.fillStyle(spec, 0.20); g.fillRect(80,84, 4,8);
 
         g.generateTexture('boss_phantom', 88, 96);
         g.destroy();
@@ -1869,178 +1907,197 @@ export default class BootScene extends Phaser.Scene {
 
     // ── KILLJOY — tech genius with yellow-accented tactical outfit ──
     _drawBossKilljoy() {
-        const g = this.make.graphics({ x: 0, y: 0, add: false });
-        const skin = 0xe8b880, dark = 0x222200;
-        const suit = 0x1a1a00, accent = 0xffee00, hair = 0x1a0a00;
+        const g    = this.make.graphics({ x: 0, y: 0, add: false });
+        const skin = 0xf5c88a, dark = 0x111100;
+        const suit = 0x111a1a, yel  = 0xffe033, teal = 0x00c8a0, tealL = 0x44ffe0;
 
-        // Hair (twin pigtails effect — short hair with bright accent clips)
-        g.fillStyle(hair);
-        g.fillRect(20, 0, 40, 12);
-        g.fillStyle(accent);
-        g.fillRect(16, 6, 6, 6);   // L clip
-        g.fillRect(58, 6, 6, 6);   // R clip
+        // Hair — twin ponytails with yellow clips
+        g.fillStyle(0x1a0a00); g.fillRect(18, 0, 44, 14);
+        g.fillStyle(yel); g.fillRect(14,8,6,6); g.fillRect(60,8,6,6);
 
         // Head
-        g.fillStyle(skin); g.fillRect(18, 8, 44, 24);
-        // Eyes (sharp, determined)
-        g.fillStyle(dark); g.fillRect(24,16,10,6); g.fillRect(46,16,10,6);
-        g.fillStyle(accent); g.fillRect(26,18,6,4); g.fillRect(48,18,6,4);
-        g.fillStyle(0xffffff); g.fillRect(28,18,3,3); g.fillRect(50,18,3,3);
-        // Nose/mouth
-        g.fillStyle(0xc8946a); g.fillRect(38,24,4,3);
-        g.fillStyle(dark); g.fillRect(32,28,16,3);
+        g.fillStyle(skin); g.fillRect(18, 10, 44, 24);
+        // Eyes — bright teal irises
+        g.fillStyle(dark);  g.fillRect(22,18,12,6); g.fillRect(46,18,12,6);
+        g.fillStyle(teal);  g.fillRect(24,19,8,4);  g.fillRect(48,19,8,4);
+        g.fillStyle(0xffffff); g.fillRect(27,20,3,3); g.fillRect(51,20,3,3);
+        // Smirk
+        g.fillStyle(0xc8946a); g.fillRect(38,26,4,3);
+        g.fillStyle(dark); g.fillRect(30,30,20,3);
 
-        // Body — armored jumpsuit
-        g.fillStyle(suit); g.fillRect(14,32,52,44);
-        g.fillStyle(accent);
-        g.fillRect(14,32,52,4);    // collar stripe
-        g.fillRect(38,36,4,40);    // centre line
-        g.fillRect(14,60,52,4);    // belt
-        // Shoulder pads
-        g.fillStyle(0x333300); g.fillRect(8,32,10,18); g.fillRect(62,32,10,18);
-        g.fillStyle(accent); g.fillRect(8,32,10,4); g.fillRect(62,32,10,4);
-
-        // Nano-tech device on belt (yellow box with circuits)
-        g.fillStyle(accent); g.fillRect(28,60,24,14);
-        g.fillStyle(dark); g.fillRect(30,62,20,10);
-        g.fillStyle(accent);
-        g.fillRect(32,64,4,2); g.fillRect(38,64,10,2);
-        g.fillRect(32,68,16,2);
+        // Body — dark teal armored suit
+        g.fillStyle(suit); g.fillRect(12,34,56,42);
+        // Yellow stripe accents
+        g.fillStyle(yel); g.fillRect(12,34,56,4); g.fillRect(38,38,4,38); g.fillRect(12,58,56,4);
+        // Teal tech panels on chest
+        g.fillStyle(teal); g.fillRect(16,40,18,16); g.fillRect(46,40,18,16);
+        g.fillStyle(tealL); g.fillRect(18,42,14,12); g.fillRect(48,42,14,12);
+        g.fillStyle(dark); g.fillRect(20,44,10,8);   g.fillRect(50,44,10,8);
+        // Circuit lines on panels
+        g.fillStyle(yel); g.fillRect(21,45,4,2); g.fillRect(21,49,8,2);
+        g.fillStyle(yel); g.fillRect(51,45,4,2); g.fillRect(51,49,8,2);
+        // Shoulder pads (teal)
+        g.fillStyle(teal); g.fillRect(6,34,10,18); g.fillRect(64,34,10,18);
+        g.fillStyle(yel);  g.fillRect(6,34,10,4);  g.fillRect(64,34,10,4);
+        // Belt tech device
+        g.fillStyle(yel); g.fillRect(26,58,28,14);
+        g.fillStyle(dark); g.fillRect(28,60,24,10);
+        g.fillStyle(teal); g.fillRect(30,62,8,2); g.fillRect(30,65,12,2); g.fillRect(40,62,10,5);
+        g.fillStyle(tealL); g.fillRect(42,63,6,3);
 
         // Arms
-        g.fillStyle(suit); g.fillRect(0,32,10,32); g.fillRect(70,32,10,32);
-        g.fillStyle(skin); g.fillRect(0,60,10,10); g.fillRect(70,60,10,10);
-        // Gauntlet
-        g.fillStyle(accent); g.fillRect(0,56,10,6); g.fillRect(70,56,10,6);
+        g.fillStyle(suit); g.fillRect(0,34,10,32); g.fillRect(70,34,10,32);
+        // Teal gauntlets
+        g.fillStyle(teal); g.fillRect(0,54,10,10); g.fillRect(70,54,10,10);
+        g.fillStyle(skin); g.fillRect(0,62,10,6);  g.fillRect(70,62,10,6);
 
         // Legs
-        g.fillStyle(suit); g.fillRect(14,76,22,20); g.fillRect(44,76,22,20);
-        g.fillStyle(accent); g.fillRect(14,76,22,4); g.fillRect(44,76,22,4);
-        // Boots
-        g.fillStyle(dark); g.fillRect(10,90,28,6); g.fillRect(42,90,28,6);
+        g.fillStyle(suit); g.fillRect(12,76,24,20); g.fillRect(44,76,24,20);
+        g.fillStyle(yel);  g.fillRect(12,76,24,4);  g.fillRect(44,76,24,4);
+        g.fillStyle(teal); g.fillRect(14,84,20,6);  g.fillRect(46,84,20,6);
+        g.fillStyle(dark); g.fillRect(8,90,30,6);   g.fillRect(42,90,30,6);
 
         g.generateTexture('boss_killjoy', 88, 96);
         g.destroy();
     }
 
-    // ── CHAMBER — elegant French rifleman in tailored suit ──────
+    // ── CHAMBER — white & gold French rifleman ──────────────────
     _drawBossChamber() {
-        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const g    = this.make.graphics({ x: 0, y: 0, add: false });
         const skin = 0xd4a574, dark = 0x100808;
-        const suit = 0x2a1e0a, gold = 0xffe082, cream = 0xfff8e1;
+        const suit = 0xf0f0f0, suitS= 0xd8d8d8, suitD= 0xb0b0b0;
+        const gold = 0xffd700, goldD= 0xcca300, cream = 0xfffde7;
         const hair = 0x5c3d1e;
 
-        // Hair (swept back, dignified)
-        g.fillStyle(hair);
-        g.fillRect(18, 0, 44, 14);
-        g.fillStyle(0x8b6534);
-        g.fillRect(20, 2, 40, 8);
+        // Hair — swept back, brown
+        g.fillStyle(hair); g.fillRect(18, 0, 44, 14);
+        g.fillStyle(0x7a5230); g.fillRect(20, 2, 40, 8);
 
         // Head
         g.fillStyle(skin); g.fillRect(18, 10, 44, 24);
-        // Eyebrow (one arched smugly)
+        // Eyebrows — one cocked arrogantly
         g.fillStyle(hair); g.fillRect(22,16,12,3); g.fillRect(46,14,12,3);
-        // Eyes (sharp, calculating)
-        g.fillStyle(dark); g.fillRect(22,20,12,6); g.fillRect(46,20,12,6);
-        g.fillStyle(gold); g.fillRect(24,21,8,4); g.fillRect(48,21,8,4);
+        // Eyes — calculating, gold irises
+        g.fillStyle(dark); g.fillRect(22,20,12,7); g.fillRect(46,20,12,7);
+        g.fillStyle(gold);  g.fillRect(24,21,8,5); g.fillRect(48,21,8,5);
         g.fillStyle(0xffffff); g.fillRect(26,22,4,3); g.fillRect(50,22,4,3);
-        // Nose (aristocratic)
-        g.fillStyle(0xb87a4a); g.fillRect(38,27,4,4);
-        // Thin mustache
-        g.fillStyle(hair); g.fillRect(30,30,28,3);
-        // Mouth (subtle smirk)
-        g.fillStyle(dark); g.fillRect(34,32,20,2);
+        // Aristocratic nose + thin moustache
+        g.fillStyle(0xb87a4a); g.fillRect(38,27,4,5);
+        g.fillStyle(hair); g.fillRect(28,31,12,3); g.fillRect(42,31,12,3);
+        g.fillStyle(dark); g.fillRect(34,33,20,2);
 
-        // Suit collar + tie
-        g.fillStyle(cream); g.fillRect(28,34,24,12);
-        g.fillStyle(gold); g.fillRect(38,36,4,10);  // tie
-        // Body — tailored suit
-        g.fillStyle(suit); g.fillRect(10,34,58,42);
+        // White suit collar + gold tie
+        g.fillStyle(cream); g.fillRect(26,34,28,12);
+        g.fillStyle(gold); g.fillRect(38,36,4,10);
+        // White suit body
+        g.fillStyle(suit); g.fillRect(8,34,60,42);
+        // Gold trim & lapels
         g.fillStyle(gold);
-        g.fillRect(10,34,58,3);   // collar line
-        g.fillRect(10,50,24,3);   // L lapel
-        g.fillRect(54,50,24,3);   // R lapel
-        // Pocket square
-        g.fillStyle(cream); g.fillRect(60,38,10,8);
-        g.fillStyle(gold); g.fillRect(62,38,6,4);
-        // Shoulder pads (subtle)
-        g.fillStyle(0x1a1008); g.fillRect(6,34,8,18); g.fillRect(74,34,8,18);
+        g.fillRect(8,34,60,3);    // shoulder seam
+        g.fillRect(8,48,22,3);    // L lapel
+        g.fillRect(58,48,14,3);   // R lapel
+        g.fillRect(8,34,4,42);    // L piping
+        g.fillRect(76,34,4,42);   // R piping
+        // Chest shading
+        g.fillStyle(suitS); g.fillRect(14,36,26,38); g.fillRect(44,36,22,38);
+        g.fillStyle(suitD); g.fillRect(36,36,16,38);
+        // Pocket square (gold)
+        g.fillStyle(gold); g.fillRect(60,38,10,8);
+        g.fillStyle(cream); g.fillRect(62,40,6,4);
+        // Gold buttons
+        g.fillStyle(gold); g.fillRect(38,46,4,4); g.fillRect(38,54,4,4); g.fillRect(38,62,4,4);
+        // Shoulder pads
+        g.fillStyle(suitD); g.fillRect(4,34,8,18); g.fillRect(76,34,8,18);
+        g.fillStyle(gold);  g.fillRect(4,34,8,4);  g.fillRect(76,34,8,4);
 
-        // Arms (suit-sleeved)
-        g.fillStyle(suit); g.fillRect(0,34,8,32); g.fillRect(80,34,8,32);
-        g.fillStyle(cream); g.fillRect(0,60,8,8); g.fillRect(80,60,8,8);  // cuffs
-        g.fillStyle(gold); g.fillRect(0,58,8,4); g.fillRect(80,58,8,4);   // cufflinks
+        // Arms — white suit sleeves
+        g.fillStyle(suit);  g.fillRect(0,34,6,30); g.fillRect(82,34,6,30);
+        g.fillStyle(cream); g.fillRect(0,60,6,8);  g.fillRect(82,60,6,8);
+        g.fillStyle(gold);  g.fillRect(0,57,6,5);  g.fillRect(82,57,6,5);
 
-        // Legs (trousers)
-        g.fillStyle(suit); g.fillRect(14,76,22,20); g.fillRect(52,76,22,20);
-        // Dress shoes
-        g.fillStyle(dark); g.fillRect(10,90,28,6); g.fillRect(50,90,28,6);
-        g.fillStyle(0x333333); g.fillRect(12,92,24,2); g.fillRect(52,92,24,2);
+        // Legs — white trousers with gold stripe
+        g.fillStyle(suit);  g.fillRect(14,76,22,20); g.fillRect(52,76,22,20);
+        g.fillStyle(gold);  g.fillRect(24,76,2,20);  g.fillRect(62,76,2,20);
+        // Dress shoes — black
+        g.fillStyle(dark);  g.fillRect(10,90,28,6); g.fillRect(50,90,28,6);
+        g.fillStyle(0x444444); g.fillRect(12,92,24,2); g.fillRect(52,92,24,2);
 
-        // Sniper rifle (long, sleek)
-        g.fillStyle(0x555555); g.fillRect(78, 10, 10, 62);  // barrel
-        g.fillStyle(gold);     g.fillRect(76,  8, 14,  8);  // scope
-        g.fillStyle(0x333333); g.fillRect(80, 18, 6, 10);   // body
-        g.fillStyle(0x888888); g.fillRect(80, 60, 6, 12);   // grip
+        // Sniper rifle — long gold & grey
+        g.fillStyle(0x888888); g.fillRect(78,14,8,60);  // barrel
+        g.fillStyle(gold);     g.fillRect(76,10,12,10); // scope housing
+        g.fillStyle(0x333333); g.fillRect(78,20,8,12);  // body
+        g.fillStyle(gold);     g.fillRect(76,10,12,3);  // scope rail
+        g.fillStyle(0x666666); g.fillRect(80,60,6,14);  // grip
 
         g.generateTexture('boss_chamber', 88, 96);
         g.destroy();
     }
 
-    // ── KAY/O — militaristic combat robot ───────────────────────
+    // ── KAY/O — silver & blue combat robot ──────────────────────
     _drawBossKayo() {
-        const g = this.make.graphics({ x: 0, y: 0, add: false });
-        const metal = 0x263238, metalL = 0x37474f, metalD = 0x1c2529;
-        const teal  = 0x00bcd4, tealL  = 0x80deea;
-        const white = 0xeceff1;
+        const g      = this.make.graphics({ x: 0, y: 0, add: false });
+        const silver = 0xb0bec5, silverL = 0xcfd8dc, silverD = 0x78909c;
+        const blue   = 0x1565c0, blueL   = 0x42a5f5, blueLL  = 0x90caf9;
+        const dark   = 0x1a2327, white   = 0xe8f5fd;
 
-        // Head (angular, robotic)
-        g.fillStyle(metalL); g.fillRect(14, 2, 52, 28);
-        g.fillStyle(metal);  g.fillRect(16, 4, 48, 24);
-        // Visor / eye panel
-        g.fillStyle(teal);   g.fillRect(16, 8, 48, 14);
-        g.fillStyle(tealL);  g.fillRect(18,10, 44, 10);
-        g.fillStyle(white);  g.fillRect(20,11, 40,  8);
-        // KAY/O logo on forehead
-        g.fillStyle(metalD); g.fillRect(28, 4, 24,  4);
-        g.fillStyle(teal);   g.fillRect(30, 4, 20,  3);
-        // Chin vents
-        g.fillStyle(metalD); g.fillRect(24,24,6,6); g.fillRect(34,24,6,6); g.fillRect(44,24,6,6); g.fillRect(54,24,6,6);
+        // Head — angular, heavily armored
+        g.fillStyle(silverL); g.fillRect(12, 2, 56, 28);
+        g.fillStyle(silver);  g.fillRect(14, 4, 52, 24);
+        g.fillStyle(dark);    g.fillRect(16, 6, 48, 20);
+        // Blue visor — wide glowing band
+        g.fillStyle(blue);    g.fillRect(14, 8, 52, 16);
+        g.fillStyle(blueL);   g.fillRect(16,10, 48, 12);
+        g.fillStyle(blueLL);  g.fillRect(18,11, 44,  8);
+        g.fillStyle(white);   g.fillRect(20,12, 40,  6);
+        // KAY/O forehead plate
+        g.fillStyle(silverD); g.fillRect(26, 2, 28,  6);
+        g.fillStyle(blueL);   g.fillRect(28, 3, 24,  3);
+        // Jaw vents
+        g.fillStyle(dark);    g.fillRect(22,24,8,6); g.fillRect(34,24,8,6); g.fillRect(46,24,8,6);
+        g.fillStyle(blue);    g.fillRect(23,25,6,4); g.fillRect(35,25,6,4); g.fillRect(47,25,6,4);
 
-        // Neck / collar
-        g.fillStyle(metalD); g.fillRect(30,28,28,6);
-        g.fillStyle(teal);   g.fillRect(32,30,24,3);
+        // Neck struts
+        g.fillStyle(silverD); g.fillRect(28,28,6,8); g.fillRect(54,28,6,8);
+        g.fillStyle(blue);    g.fillRect(30,30,4,5); g.fillRect(56,30,4,5);
 
-        // Body — heavy armored chassis
-        g.fillStyle(metalL); g.fillRect(8,34,64,42);
-        g.fillStyle(metal);  g.fillRect(10,36,60,38);
-        // Chest plate detail
-        g.fillStyle(teal);   g.fillRect(26,38,28,18);
-        g.fillStyle(metalD); g.fillRect(28,40,24,14);
-        g.fillStyle(teal);   g.fillRect(30,42,20,10);
-        g.fillStyle(tealL);  g.fillRect(32,44,16, 6);  // core glow
-        // Side vents
-        g.fillStyle(metalD);
-        for (let i = 0; i < 4; i++) {
-            g.fillRect(10, 40+i*6, 14, 4);
-            g.fillRect(64, 40+i*6, 14, 4);
-        }
-        // Belt ammo pouches
-        g.fillStyle(0x1c2529); g.fillRect(10,72,64,4);
-        g.fillStyle(teal);     g.fillRect(18,72,8,4); g.fillRect(38,72,8,4); g.fillRect(58,72,8,4);
+        // Body — heavy battle chassis
+        g.fillStyle(silverL); g.fillRect(6,34,68,42);
+        g.fillStyle(silver);  g.fillRect(8,36,64,38);
+        g.fillStyle(dark);    g.fillRect(10,38,60,34);
+        // Blue chest core (large, dominant)
+        g.fillStyle(blue);    g.fillRect(22,40,36,24);
+        g.fillStyle(blueL);   g.fillRect(24,42,32,20);
+        g.fillStyle(blueLL);  g.fillRect(26,44,28,16);
+        g.fillStyle(white);   g.fillRect(28,46,24,12);
+        g.fillStyle(blueLL);  g.fillRect(30,48,20, 8);
+        g.fillStyle(blue);    g.fillRect(32,50,16, 4);
+        // Silver chest plating sides
+        g.fillStyle(silver);  g.fillRect(8,38,16,34); g.fillRect(64,38,16,34);
+        g.fillStyle(silverD); g.fillRect(10,40,12,30); g.fillRect(66,40,12,30);
+        // Blue side stripes
+        g.fillStyle(blueL);   g.fillRect(10,44,12,4); g.fillRect(66,44,12,4);
+        g.fillStyle(blueL);   g.fillRect(10,54,12,4); g.fillRect(66,54,12,4);
+        // Belt with blue energy cells
+        g.fillStyle(silverD); g.fillRect(8,72,64,6);
+        g.fillStyle(blue);    g.fillRect(14,73,12,4); g.fillRect(38,73,12,4); g.fillRect(62,73,6,4);
 
-        // Arms (heavy plated)
-        g.fillStyle(metalL); g.fillRect(0,34,10,36); g.fillRect(78,34,10,36);
-        g.fillStyle(metal);  g.fillRect(0,36,10,32); g.fillRect(78,36,10,32);
-        // Forearm cannons
-        g.fillStyle(teal); g.fillRect(0,56,10,8); g.fillRect(78,56,10,8);
+        // Arms — thick armored plating
+        g.fillStyle(silverL); g.fillRect(0,34,8,40); g.fillRect(80,34,8,40);
+        g.fillStyle(silver);  g.fillRect(0,36,8,36); g.fillRect(80,36,8,36);
+        // Blue forearm power bands
+        g.fillStyle(blue);    g.fillRect(0,52,8,10); g.fillRect(80,52,8,10);
+        g.fillStyle(blueL);   g.fillRect(0,54,8,6);  g.fillRect(80,54,8,6);
+        // Hands / weapon mount
+        g.fillStyle(silverD); g.fillRect(0,70,8,6); g.fillRect(80,70,8,6);
 
-        // Legs (armored)
-        g.fillStyle(metalL); g.fillRect(10,76,26,20); g.fillRect(52,76,26,20);
-        g.fillStyle(metal);  g.fillRect(12,78,22,16); g.fillRect(54,78,22,16);
-        g.fillStyle(teal);   g.fillRect(12,84,22,4);  g.fillRect(54,84,22,4);
+        // Legs — heavy plated
+        g.fillStyle(silverL); g.fillRect(8,76,28,20); g.fillRect(52,76,28,20);
+        g.fillStyle(silver);  g.fillRect(10,78,24,16); g.fillRect(54,78,24,16);
+        g.fillStyle(blue);    g.fillRect(10,82,24,6);  g.fillRect(54,82,24,6);
+        g.fillStyle(blueL);   g.fillRect(12,83,20,4);  g.fillRect(56,83,20,4);
         // Boots
-        g.fillStyle(metalD); g.fillRect(8,90,30,6); g.fillRect(50,90,30,6);
+        g.fillStyle(dark);    g.fillRect(6,90,32,6); g.fillRect(50,90,32,6);
+        g.fillStyle(silverD); g.fillRect(8,91,28,3); g.fillRect(52,91,28,3);
 
         g.generateTexture('boss_kayo', 88, 96);
         g.destroy();
