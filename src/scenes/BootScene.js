@@ -346,6 +346,8 @@ export default class BootScene extends Phaser.Scene {
         this._drawBerserker();
         this._drawJuggernaut();
         this._drawVampire();
+        this._drawWraith();
+        this._drawColossus();
     }
 
     // ── GUARD — armoured sentinel with sword and buckler ──────────
@@ -972,6 +974,77 @@ export default class BootScene extends Phaser.Scene {
         g.destroy();
     }
 
+    // ── WRAITH — spectral teleporter, ghostly and translucent ────
+    _drawWraith() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const ghost = 0x6600aa, ghostL = 0xaa44ff, core = 0xdd88ff;
+
+        // Wispy body
+        g.fillStyle(ghostL); g.fillRect(6, 4, 28, 38);
+        g.fillStyle(ghost);  g.fillRect(8, 6, 24, 34);
+        // Flowing robe bottom (jagged)
+        g.fillStyle(ghostL);
+        g.fillRect(6, 38, 6, 14); g.fillRect(16,38, 6, 18); g.fillRect(26,38, 6, 14);
+        // Eyes (glowing)
+        g.fillStyle(core); g.fillRect(10,10,8,6); g.fillRect(22,10,8,6);
+        g.fillStyle(0xffffff); g.fillRect(12,12,4,3); g.fillRect(24,12,4,3);
+        // Arms (wispy tendrils)
+        g.fillStyle(ghostL);
+        g.fillRect(0,12,8,18); g.fillRect(32,12,8,18);
+        g.fillStyle(ghost);
+        g.fillRect(0,22,4,6); g.fillRect(36,22,4,6);
+
+        g.generateTexture('enemy_wraith', 40, 56);
+        g.destroy();
+    }
+
+    // ── COLOSSUS — massive armored ranged tank ───────────────────
+    _drawColossus() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const plate = 0x455a64, plateL = 0x607d8b, dark = 0x263238;
+        const visor = 0x00e5ff, cannon = 0x37474f;
+
+        // Helmet (huge)
+        g.fillStyle(plateL); g.fillRect(8, 0, 48, 28);
+        g.fillStyle(plate);  g.fillRect(10, 2, 44, 24);
+        // Visor slit
+        g.fillStyle(visor);  g.fillRect(12, 8, 40, 10);
+        g.fillStyle(0x80deea); g.fillRect(14, 10, 36, 6);
+        // Bolts on helmet
+        g.fillStyle(dark);
+        g.fillRect(10, 2, 4, 4); g.fillRect(50, 2, 4, 4);
+        g.fillRect(10,22, 4, 4); g.fillRect(50,22, 4, 4);
+
+        // Body — massive chest plate
+        g.fillStyle(plateL); g.fillRect(4, 28, 56, 46);
+        g.fillStyle(plate);  g.fillRect(6, 30, 52, 42);
+        // Chest details
+        g.fillStyle(dark);
+        g.fillRect(18, 34, 28, 4); g.fillRect(18, 44, 28, 4); g.fillRect(18, 54, 28, 4);
+        // Core gem
+        g.fillStyle(visor);  g.fillRect(27, 38, 10, 10);
+        g.fillStyle(0x80deea); g.fillRect(29, 40, 6, 6);
+
+        // Shoulder plates
+        g.fillStyle(plateL); g.fillRect(0, 28, 8, 28); g.fillRect(56, 28, 8, 28);
+        g.fillStyle(dark);   g.fillRect(0, 28, 8, 4);  g.fillRect(56, 28, 8, 4);
+
+        // Arm cannon (right side)
+        g.fillStyle(cannon); g.fillRect(56, 38, 20, 16);
+        g.fillStyle(dark);   g.fillRect(72, 38, 6, 16);
+        g.fillStyle(visor);  g.fillRect(74, 40, 4, 12);
+
+        // Legs (armored, wide)
+        g.fillStyle(plateL); g.fillRect(6, 74, 24, 22); g.fillRect(34, 74, 24, 22);
+        g.fillStyle(plate);  g.fillRect(8, 76, 20, 18); g.fillRect(36, 76, 20, 18);
+        g.fillStyle(dark);   g.fillRect(8, 82, 20, 4);  g.fillRect(36, 82, 4, 4);
+        // Boots
+        g.fillStyle(dark);   g.fillRect(4, 90, 28, 6);  g.fillRect(32, 90, 28, 6);
+
+        g.generateTexture('enemy_colossus', 80, 96);
+        g.destroy();
+    }
+
     createTileTextures() {
         // Ground
         const gnd = this.make.graphics({ x: 0, y: 0, add: false });
@@ -1166,6 +1239,9 @@ export default class BootScene extends Phaser.Scene {
         this._drawBossPhantom();
         this._drawBossTitan();
         this._drawBossStorm();
+        this._drawBossKilljoy();
+        this._drawBossChamber();
+        this._drawBossKayo();
 
         // ── Boss bullets ──
         // VIPER bullet (toxic green orb)
@@ -1215,6 +1291,46 @@ export default class BootScene extends Phaser.Scene {
         sw.fillStyle(0xffcc02); sw.fillRect(4,2,44,6);
         sw.generateTexture('boss_shockwave', 52, 10);
         sw.destroy();
+
+        // KILLJOY bullet (yellow nano-swarm orb)
+        const bkj = this.make.graphics({ x: 0, y: 0, add: false });
+        bkj.fillStyle(0x665500); bkj.fillCircle(10,10,10);
+        bkj.fillStyle(0xffee00); bkj.fillCircle(10,10,6);
+        bkj.fillStyle(0xffff99); bkj.fillCircle(10,10,3);
+        bkj.generateTexture('boss_bullet_killjoy', 20, 20);
+        bkj.destroy();
+
+        // CHAMBER bullet (gold sniper round)
+        const bch = this.make.graphics({ x: 0, y: 0, add: false });
+        bch.fillStyle(0xb8860b); bch.fillRect(0,4,22,6);
+        bch.fillStyle(0xffe082); bch.fillRect(4,5,14,4);
+        bch.fillStyle(0xffffff); bch.fillRect(18,5,4,4);
+        bch.generateTexture('boss_bullet_chamber', 22, 14);
+        bch.destroy();
+
+        // KAYO bullet (cyan energy pulse)
+        const bko = this.make.graphics({ x: 0, y: 0, add: false });
+        bko.fillStyle(0x004d60); bko.fillCircle(10,10,10);
+        bko.fillStyle(0x00bcd4); bko.fillCircle(10,10,6);
+        bko.fillStyle(0x80deea); bko.fillCircle(10,10,3);
+        bko.generateTexture('boss_bullet_kayo', 20, 20);
+        bko.destroy();
+
+        // Chamber trap (teal slow-field disk)
+        const ct = this.make.graphics({ x: 0, y: 0, add: false });
+        ct.fillStyle(0x003344, 0.8); ct.fillEllipse(28, 10, 56, 20);
+        ct.fillStyle(0x00bcd4, 0.9); ct.fillEllipse(28, 10, 42, 12);
+        ct.lineStyle(2, 0xffe082, 0.95); ct.strokeEllipse(28, 10, 56, 20);
+        ct.generateTexture('chamber_trap', 56, 20);
+        ct.destroy();
+
+        // Kayo knife (teal blade)
+        const kk = this.make.graphics({ x: 0, y: 0, add: false });
+        kk.fillStyle(0x00bcd4); kk.fillRect(2,8,20,4);
+        kk.fillStyle(0x80deea); kk.fillTriangle(22,6, 30,10, 22,14);
+        kk.fillStyle(0x555555); kk.fillRect(0,9,4,2);
+        kk.generateTexture('kayo_knife', 32, 20);
+        kk.destroy();
     }
 
     // ── VIPER — Valorant: long dark hair, green eyes, respirator, tactical suit ──
@@ -1688,6 +1804,185 @@ export default class BootScene extends Phaser.Scene {
         g.fillRect(74,30,  8,  3);
 
         g.generateTexture('boss_storm', 88, 96);
+        g.destroy();
+    }
+
+    // ── KILLJOY — tech genius with yellow-accented tactical outfit ──
+    _drawBossKilljoy() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const skin = 0xe8b880, dark = 0x222200;
+        const suit = 0x1a1a00, accent = 0xffee00, hair = 0x1a0a00;
+
+        // Hair (twin pigtails effect — short hair with bright accent clips)
+        g.fillStyle(hair);
+        g.fillRect(20, 0, 40, 12);
+        g.fillStyle(accent);
+        g.fillRect(16, 6, 6, 6);   // L clip
+        g.fillRect(58, 6, 6, 6);   // R clip
+
+        // Head
+        g.fillStyle(skin); g.fillRect(18, 8, 44, 24);
+        // Eyes (sharp, determined)
+        g.fillStyle(dark); g.fillRect(24,16,10,6); g.fillRect(46,16,10,6);
+        g.fillStyle(accent); g.fillRect(26,18,6,4); g.fillRect(48,18,6,4);
+        g.fillStyle(0xffffff); g.fillRect(28,18,3,3); g.fillRect(50,18,3,3);
+        // Nose/mouth
+        g.fillStyle(0xc8946a); g.fillRect(38,24,4,3);
+        g.fillStyle(dark); g.fillRect(32,28,16,3);
+
+        // Body — armored jumpsuit
+        g.fillStyle(suit); g.fillRect(14,32,52,44);
+        g.fillStyle(accent);
+        g.fillRect(14,32,52,4);    // collar stripe
+        g.fillRect(38,36,4,40);    // centre line
+        g.fillRect(14,60,52,4);    // belt
+        // Shoulder pads
+        g.fillStyle(0x333300); g.fillRect(8,32,10,18); g.fillRect(62,32,10,18);
+        g.fillStyle(accent); g.fillRect(8,32,10,4); g.fillRect(62,32,10,4);
+
+        // Nano-tech device on belt (yellow box with circuits)
+        g.fillStyle(accent); g.fillRect(28,60,24,14);
+        g.fillStyle(dark); g.fillRect(30,62,20,10);
+        g.fillStyle(accent);
+        g.fillRect(32,64,4,2); g.fillRect(38,64,10,2);
+        g.fillRect(32,68,16,2);
+
+        // Arms
+        g.fillStyle(suit); g.fillRect(0,32,10,32); g.fillRect(70,32,10,32);
+        g.fillStyle(skin); g.fillRect(0,60,10,10); g.fillRect(70,60,10,10);
+        // Gauntlet
+        g.fillStyle(accent); g.fillRect(0,56,10,6); g.fillRect(70,56,10,6);
+
+        // Legs
+        g.fillStyle(suit); g.fillRect(14,76,22,20); g.fillRect(44,76,22,20);
+        g.fillStyle(accent); g.fillRect(14,76,22,4); g.fillRect(44,76,22,4);
+        // Boots
+        g.fillStyle(dark); g.fillRect(10,90,28,6); g.fillRect(42,90,28,6);
+
+        g.generateTexture('boss_killjoy', 88, 96);
+        g.destroy();
+    }
+
+    // ── CHAMBER — elegant French rifleman in tailored suit ──────
+    _drawBossChamber() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const skin = 0xd4a574, dark = 0x100808;
+        const suit = 0x2a1e0a, gold = 0xffe082, cream = 0xfff8e1;
+        const hair = 0x5c3d1e;
+
+        // Hair (swept back, dignified)
+        g.fillStyle(hair);
+        g.fillRect(18, 0, 44, 14);
+        g.fillStyle(0x8b6534);
+        g.fillRect(20, 2, 40, 8);
+
+        // Head
+        g.fillStyle(skin); g.fillRect(18, 10, 44, 24);
+        // Eyebrow (one arched smugly)
+        g.fillStyle(hair); g.fillRect(22,16,12,3); g.fillRect(46,14,12,3);
+        // Eyes (sharp, calculating)
+        g.fillStyle(dark); g.fillRect(22,20,12,6); g.fillRect(46,20,12,6);
+        g.fillStyle(gold); g.fillRect(24,21,8,4); g.fillRect(48,21,8,4);
+        g.fillStyle(0xffffff); g.fillRect(26,22,4,3); g.fillRect(50,22,4,3);
+        // Nose (aristocratic)
+        g.fillStyle(0xb87a4a); g.fillRect(38,27,4,4);
+        // Thin mustache
+        g.fillStyle(hair); g.fillRect(30,30,28,3);
+        // Mouth (subtle smirk)
+        g.fillStyle(dark); g.fillRect(34,32,20,2);
+
+        // Suit collar + tie
+        g.fillStyle(cream); g.fillRect(28,34,24,12);
+        g.fillStyle(gold); g.fillRect(38,36,4,10);  // tie
+        // Body — tailored suit
+        g.fillStyle(suit); g.fillRect(10,34,58,42);
+        g.fillStyle(gold);
+        g.fillRect(10,34,58,3);   // collar line
+        g.fillRect(10,50,24,3);   // L lapel
+        g.fillRect(54,50,24,3);   // R lapel
+        // Pocket square
+        g.fillStyle(cream); g.fillRect(60,38,10,8);
+        g.fillStyle(gold); g.fillRect(62,38,6,4);
+        // Shoulder pads (subtle)
+        g.fillStyle(0x1a1008); g.fillRect(6,34,8,18); g.fillRect(74,34,8,18);
+
+        // Arms (suit-sleeved)
+        g.fillStyle(suit); g.fillRect(0,34,8,32); g.fillRect(80,34,8,32);
+        g.fillStyle(cream); g.fillRect(0,60,8,8); g.fillRect(80,60,8,8);  // cuffs
+        g.fillStyle(gold); g.fillRect(0,58,8,4); g.fillRect(80,58,8,4);   // cufflinks
+
+        // Legs (trousers)
+        g.fillStyle(suit); g.fillRect(14,76,22,20); g.fillRect(52,76,22,20);
+        // Dress shoes
+        g.fillStyle(dark); g.fillRect(10,90,28,6); g.fillRect(50,90,28,6);
+        g.fillStyle(0x333333); g.fillRect(12,92,24,2); g.fillRect(52,92,24,2);
+
+        // Sniper rifle (long, sleek)
+        g.fillStyle(0x555555); g.fillRect(78, 10, 10, 62);  // barrel
+        g.fillStyle(gold);     g.fillRect(76,  8, 14,  8);  // scope
+        g.fillStyle(0x333333); g.fillRect(80, 18, 6, 10);   // body
+        g.fillStyle(0x888888); g.fillRect(80, 60, 6, 12);   // grip
+
+        g.generateTexture('boss_chamber', 88, 96);
+        g.destroy();
+    }
+
+    // ── KAY/O — militaristic combat robot ───────────────────────
+    _drawBossKayo() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const metal = 0x263238, metalL = 0x37474f, metalD = 0x1c2529;
+        const teal  = 0x00bcd4, tealL  = 0x80deea;
+        const white = 0xeceff1;
+
+        // Head (angular, robotic)
+        g.fillStyle(metalL); g.fillRect(14, 2, 52, 28);
+        g.fillStyle(metal);  g.fillRect(16, 4, 48, 24);
+        // Visor / eye panel
+        g.fillStyle(teal);   g.fillRect(16, 8, 48, 14);
+        g.fillStyle(tealL);  g.fillRect(18,10, 44, 10);
+        g.fillStyle(white);  g.fillRect(20,11, 40,  8);
+        // KAY/O logo on forehead
+        g.fillStyle(metalD); g.fillRect(28, 4, 24,  4);
+        g.fillStyle(teal);   g.fillRect(30, 4, 20,  3);
+        // Chin vents
+        g.fillStyle(metalD); g.fillRect(24,24,6,6); g.fillRect(34,24,6,6); g.fillRect(44,24,6,6); g.fillRect(54,24,6,6);
+
+        // Neck / collar
+        g.fillStyle(metalD); g.fillRect(30,28,28,6);
+        g.fillStyle(teal);   g.fillRect(32,30,24,3);
+
+        // Body — heavy armored chassis
+        g.fillStyle(metalL); g.fillRect(8,34,64,42);
+        g.fillStyle(metal);  g.fillRect(10,36,60,38);
+        // Chest plate detail
+        g.fillStyle(teal);   g.fillRect(26,38,28,18);
+        g.fillStyle(metalD); g.fillRect(28,40,24,14);
+        g.fillStyle(teal);   g.fillRect(30,42,20,10);
+        g.fillStyle(tealL);  g.fillRect(32,44,16, 6);  // core glow
+        // Side vents
+        g.fillStyle(metalD);
+        for (let i = 0; i < 4; i++) {
+            g.fillRect(10, 40+i*6, 14, 4);
+            g.fillRect(64, 40+i*6, 14, 4);
+        }
+        // Belt ammo pouches
+        g.fillStyle(0x1c2529); g.fillRect(10,72,64,4);
+        g.fillStyle(teal);     g.fillRect(18,72,8,4); g.fillRect(38,72,8,4); g.fillRect(58,72,8,4);
+
+        // Arms (heavy plated)
+        g.fillStyle(metalL); g.fillRect(0,34,10,36); g.fillRect(78,34,10,36);
+        g.fillStyle(metal);  g.fillRect(0,36,10,32); g.fillRect(78,36,10,32);
+        // Forearm cannons
+        g.fillStyle(teal); g.fillRect(0,56,10,8); g.fillRect(78,56,10,8);
+
+        // Legs (armored)
+        g.fillStyle(metalL); g.fillRect(10,76,26,20); g.fillRect(52,76,26,20);
+        g.fillStyle(metal);  g.fillRect(12,78,22,16); g.fillRect(54,78,22,16);
+        g.fillStyle(teal);   g.fillRect(12,84,22,4);  g.fillRect(54,84,22,4);
+        // Boots
+        g.fillStyle(metalD); g.fillRect(8,90,30,6); g.fillRect(50,90,30,6);
+
+        g.generateTexture('boss_kayo', 88, 96);
         g.destroy();
     }
 

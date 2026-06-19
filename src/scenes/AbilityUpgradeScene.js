@@ -57,71 +57,122 @@ export default class AbilityUpgradeScene extends Phaser.Scene {
     init(data) {
         this.agentKey     = data.agentKey     || 'jett';
         this.abilityLevel = data.abilityLevel || 1;
+        this._confirmed   = false;
     }
 
     create() {
         const W = this.scale.width;
         const H = this.scale.height;
 
-        this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.88);
-
-        this.add.text(W / 2, 60, 'ABILITY UPGRADE', {
-            fontSize: '34px', color: '#ffffff', fontStyle: 'bold', letterSpacing: 4,
-        }).setOrigin(0.5);
-
-        this.add.text(W / 2, 104, 'Boss defeated — your power grows', {
-            fontSize: '14px', color: '#666666', letterSpacing: 2,
-        }).setOrigin(0.5);
+        // Dark overlay fades in
+        const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setDepth(0);
+        this.tweens.add({ targets: overlay, alpha: 0.92, duration: 300, ease: 'Sine.easeIn' });
 
         const upgrades = ABILITY_UPGRADES[this.agentKey] || [];
         const upg      = upgrades.find(u => u.level === this.abilityLevel);
 
         if (!upg) { this._confirm(); return; }
 
-        const colorInt = parseInt(upg.color.replace('#', ''), 16);
+        const colorInt  = parseInt(upg.color.replace('#', ''), 16);
+        const tierLabel = this.abilityLevel === 1 ? 'NEW UNLOCK' : 'UPGRADE';
+
+        // Header
+        const header = this.add.text(W / 2, 55, 'ABILITY UPGRADE', {
+            fontSize: '34px', color: '#ffffff', fontStyle: 'bold', letterSpacing: 4,
+        }).setOrigin(0.5).setAlpha(0).setDepth(1);
+
+        const sub = this.add.text(W / 2, 100, 'Boss defeated — your power grows', {
+            fontSize: '14px', color: '#666666', letterSpacing: 2,
+        }).setOrigin(0.5).setAlpha(0).setDepth(1);
 
         // Agent portrait
-        this.add.image(W / 2, 220, `agent_${this.agentKey}`).setScale(2.8);
+        const portrait = this.add.image(W / 2, 215, `agent_${this.agentKey}`)
+            .setScale(0).setDepth(1);
 
         // Tier badge
-        this.add.text(W / 2, 310, `TIER ${this.abilityLevel} UNLOCK`, {
+        const badge = this.add.text(W / 2, 308, `${tierLabel}  ·  TIER ${this.abilityLevel}`, {
             fontSize: '11px', color: upg.color, letterSpacing: 4,
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setAlpha(0).setDepth(1);
 
-        // Card
-        const cardW = 380, cardH = 200, cardY = 460;
-        this.add.rectangle(W / 2, cardY, cardW, cardH, 0x0a0a1a).setStrokeStyle(2, colorInt);
+        // Card container — starts scaled to 0, animates in
+        const cardW = 420, cardH = 200, cardY = 466;
 
-        this.add.text(W / 2, cardY - 80, upg.tag, {
+        const cardBg   = this.add.rectangle(W / 2, cardY, cardW, cardH, 0x080814).setDepth(1);
+        const cardBorder = this.add.rectangle(W / 2, cardY, cardW, cardH, 0x000000)
+            .setStrokeStyle(2, colorInt).setFillStyle(0x000000, 0).setDepth(2);
+
+        const tagTxt  = this.add.text(W / 2, cardY - 82, upg.tag, {
             fontSize: '11px', color: '#555577', letterSpacing: 3,
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(3);
 
-        this.add.text(W / 2, cardY - 58, upg.name, {
-            fontSize: '22px', color: upg.color, fontStyle: 'bold', letterSpacing: 2,
-        }).setOrigin(0.5);
+        const nameTxt = this.add.text(W / 2, cardY - 60, upg.name, {
+            fontSize: '24px', color: upg.color, fontStyle: 'bold', letterSpacing: 2,
+        }).setOrigin(0.5).setDepth(3);
 
-        this.add.rectangle(W / 2, cardY - 34, cardW - 40, 1, 0x333355);
+        this.add.rectangle(W / 2, cardY - 34, cardW - 40, 1, 0x333355).setDepth(3);
 
-        this.add.text(W / 2, cardY - 22, upg.desc, {
+        const descTxt = this.add.text(W / 2, cardY - 22, upg.desc, {
             fontSize: '14px', color: '#cccccc', align: 'center', lineSpacing: 6,
-        }).setOrigin(0.5, 0);
+        }).setOrigin(0.5, 0).setDepth(3);
+
+        // Group card elements for unified scale animation
+        const cardParts = [cardBg, cardBorder, tagTxt, nameTxt, descTxt];
+        cardParts.forEach(p => p.setScale(0.5).setAlpha(0));
 
         // Confirm button
-        const btnY = cardY + cardH / 2 + 44;
-        const btn  = this.add.rectangle(W / 2, btnY, 220, 46, colorInt);
-        this.add.text(W / 2, btnY, 'UNLOCK', {
+        const btnY = cardY + cardH / 2 + 46;
+        const btn  = this.add.rectangle(W / 2, btnY, 220, 46, colorInt).setDepth(1).setScale(0).setAlpha(0);
+        const btnTxt = this.add.text(W / 2, btnY, 'UNLOCK', {
             fontSize: '20px', fontFamily: 'Arial Black, Arial',
             color: '#ffffff', letterSpacing: 4,
-        }).setOrigin(0.5);
-        btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerover', () => btn.setAlpha(0.75));
-        btn.on('pointerout',  () => btn.setAlpha(1));
-        btn.on('pointerdown', () => this._confirm());
+        }).setOrigin(0.5).setDepth(2).setScale(0).setAlpha(0);
+
+        // ── Entrance sequence ──────────────────────────────────────────────
+        // 1. Header fades in
+        this.tweens.add({ targets: [header, sub], alpha: 1, duration: 250, delay: 100 });
+
+        // 2. Portrait pops in with slight overshoot
+        this.tweens.add({
+            targets: portrait, scale: 2.8, alpha: 1,
+            duration: 380, delay: 200, ease: 'Back.easeOut',
+        });
+
+        // 3. Badge fades in
+        this.tweens.add({ targets: badge, alpha: 1, duration: 250, delay: 350 });
+
+        // 4. Card scales up with bounce
+        this.tweens.add({
+            targets: cardParts, scale: 1, alpha: 1,
+            duration: 420, delay: 420, ease: 'Back.easeOut',
+        });
+
+        // 5. Button appears last
+        this.tweens.add({
+            targets: [btn, btnTxt], scale: 1, alpha: 1,
+            duration: 300, delay: 700, ease: 'Back.easeOut',
+            onComplete: () => {
+                // Subtle glow pulse on card border
+                this.tweens.add({
+                    targets: cardBorder, alpha: 0.55, yoyo: true,
+                    duration: 900, repeat: -1, ease: 'Sine.easeInOut',
+                });
+
+                // Enable input only after animation completes
+                btn.setInteractive({ useHandCursor: true });
+                btn.on('pointerover', () => btn.setAlpha(0.75));
+                btn.on('pointerout',  () => btn.setAlpha(1));
+                btn.on('pointerdown', () => this._confirm());
+
+                this.input.keyboard.once('keydown', () => this._confirm());
+            },
+        });
 
         this.scene.bringToTop();
     }
 
     _confirm() {
+        if (this._confirmed) return;
+        this._confirmed = true;
         this.registry.set('pickedAbilityLevel', this.abilityLevel);
         this.scene.resume('GameScene');
         this.scene.stop();

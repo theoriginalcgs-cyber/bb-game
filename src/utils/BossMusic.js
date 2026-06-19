@@ -32,6 +32,21 @@ const TRACKS = {
         melody: [N.E5,N.G5,N.A5,N.G5, N.E5,N.D5,N.E5,N.A4, N.B4,N.E5,N.G5,N.A5, N.E5,N.G5,N.A5,N.E5],
         bass:   [N.E3,0,N.E3,0,        N.A2,0,N.A2,0,        N.E3,0,N.E3,0,        N.B2,0,N.B2,0],
     },
+    killjoy: {
+        bpm: 148, wave: 'square', vol: 0.13,
+        melody: [N.D4,0,N.F4,N.G4, N.A4,0,N.G4,0, N.F4,N.D4,0,N.A3, N.C4,0,N.D4,0],
+        bass:   [N.D3,0,N.D3,0,    N.A2,0,N.A2,0, N.F3,0,N.F3,0,    N.G3,0,N.G3,0],
+    },
+    chamber: {
+        bpm: 76, wave: 'sawtooth', vol: 0.15,
+        melody: [N.A3,0,0,N.E4, N.D4,0,N.C4,0, N.B3,0,0,N.G3, N.A3,0,0,0],
+        bass:   [N.A2,0,0,0,    N.D3,0,0,0,    N.E3,0,0,0,    N.A2,0,0,0],
+    },
+    kayo: {
+        bpm: 120, wave: 'square', vol: 0.14,
+        melody: [N.C4,N.C4,0,N.G3, N.Bb3,0,N.C4,0, N.D4,0,N.C4,N.Bb3, N.G3,0,0,N.C4],
+        bass:   [N.C3,0,N.C3,0,    N.G3,0,N.G3,0,  N.F3,0,N.F3,0,     N.C3,0,N.G3,0],
+    },
 };
 
 export default class BossMusic {
@@ -73,7 +88,7 @@ export default class BossMusic {
 
     _tick() {
         if (!this.ctx || !this.type) return;
-        const track   = TRACKS[this.type];
+        const track   = TRACKS[this.type] || TRACKS.viper;
         const beatMs  = (60000 / track.bpm);
         const len     = track.melody.length;
         const i       = this.step % len;

@@ -30,6 +30,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Jett double jump
         this.canDoubleJump = agentKey === 'jett';
         this.doubleJumped = false;
+        this.jumpLocked   = false;
         this.dashTimer = 0;
 
         // Reyna life steal
@@ -61,6 +62,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this._unlimitedJumps    = false;
         this.shieldHp           = 0;
         this.abilityLevel       = 0;
+        this._trapTimer         = 0;
+        this._trapSpeed         = 0;
+
+        // Weapon upgrade state
+        this.weaponLevel        = 0;
+        this._weaponShotCounter = 0;
+
+        // Overload upgrade state
+        this.overloadLevel      = 0;
+        this._overloadCounter   = 0;
     }
 
     setControls(cursors, wasd) {
@@ -97,7 +108,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             || Phaser.Input.Keyboard.JustDown(this.cursors.space)
             || Phaser.Input.Keyboard.JustDown(this.wasd.up);
 
-        if (jumpDown) {
+        if (jumpDown && !this.jumpLocked) {
             if (onGround) {
                 this.setVelocityY(this.jumpForce);
                 this.doubleJumped = false;
@@ -176,7 +187,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const spawnX = originX + Math.cos(angle) * 28;
         const spawnY = originY + Math.sin(angle) * 28;
 
-        this._spawnBullet(bullets, spawnX, spawnY, vx, vy, angle, dmg);
+        // Weapon upgrade: Jett Twin Blades — fire 2 bullets per shot at level 2
+        if (this.agentKey === 'jett' && this.weaponLevel >= 2) {
+            const spread2 = 0.1;
+            this._spawnBullet(bullets, spawnX, spawnY,
+                Math.cos(angle + spread2) * 720, Math.sin(angle + spread2) * 720, angle + spread2, dmg);
+            this._spawnBullet(bullets, spawnX, spawnY,
+                Math.cos(angle - spread2) * 720, Math.sin(angle - spread2) * 720, angle - spread2, dmg);
+        } else {
+            this._spawnBullet(bullets, spawnX, spawnY, vx, vy, angle, dmg);
+        }
 
         if (this.multishotLevel > 0) {
             const mod = this.multishotLevel === 1 ? 4 : this.multishotLevel === 2 ? 2 : 1;
@@ -192,18 +212,55 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     _spawnBullet(bullets, x, y, vx, vy, angle, dmg) {
+        this._weaponShotCounter++;
+        this._overloadCounter++;
+
+        let finalDmg = dmg;
+
+        // OVERLOAD upgrade: every N-th bullet deals 3x damage
+        if (this.overloadLevel > 0) {
+            const triggerEvery = this.overloadLevel === 1 ? 8 : this.overloadLevel === 2 ? 6 : 4;
+            if (this._overloadCounter % triggerEvery === 0) {
+                finalDmg = dmg * 3;
+            }
+        }
+
+        // Reyna Tier-2: during Devour, +40% damage
+        if (this.agentKey === 'reyna' && this.weaponLevel >= 2 && this.lifeSteal) {
+            finalDmg = Math.round(dmg * 1.4);
+        }
+
         const bullet = bullets.create(x, y, 'bullet');
         if (!bullet) return;
         bullet.setVelocity(vx, vy);
         bullet.setGravityY(-900);
         bullet.setRotation(angle);
-        bullet.damage = dmg;
-        bullet.origVx = vx;
-        bullet.origVy = vy;
+        bullet.damage    = finalDmg;
+        bullet.origVx    = vx;
+        bullet.origVy    = vy;
         bullet.isLifeSteal = this.lifeSteal;
+
+        // Apply weapon flags
+        if (this.agentKey === 'jett' && this.weaponLevel >= 1 && this._weaponShotCounter % 5 === 0) {
+            bullet.piercing = true;
+            bullet.setTint(0x4fc3f7);
+        }
+        if (this.agentKey === 'sage'   && this.weaponLevel >= 1) bullet.isCryo      = true;
+        if (this.agentKey === 'sage'   && this.weaponLevel >= 2 && this._weaponShotCounter % 6 === 0) {
+            this.shieldHp = Math.min(this.shieldHp + 1, 8);
+            this.floatText('+1 SHIELD', '#66bbff');
+        }
+        if (this.agentKey === 'reyna'  && this.weaponLevel >= 1) bullet.isDrain      = true;
+        if (this.agentKey === 'phoenix'&& this.weaponLevel >= 1) bullet.isHotRound   = true;
+
         this.scene.time.delayedCall(1400, () => {
             if (bullet && bullet.active) bullet.destroy();
         });
+    }
+
+    applyWeaponUpgrade(upgradeId) {
+        this.weaponLevel++;
+        this.floatText(`WEAPON TIER ${this.weaponLevel}!`, '#ff9800');
     }
 
     useAbility() {
@@ -311,6 +368,21 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.poisonTickCd = Math.min(this.poisonTickCd, 300);
     }
 
+    applyTrap(duration = 3000) {
+        if (this._trapTimer > 0) return;
+        this._trapTimer = duration;
+        this._trapSpeed = this.speed;
+        this.speed = Math.round(this.speed * 0.4);
+        this.setTint(0xffe082);
+        this.floatText('SLOWED!', '#ffe082');
+        this.scene.time.delayedCall(duration, () => {
+            if (!this.active) return;
+            this.speed = this._trapSpeed;
+            this._trapTimer = 0;
+            if (!this._powerupInvincible) this.clearTint();
+        });
+    }
+
     gainHp(amount) {
         this.hp = Math.min(this.hp + amount, this.maxHp);
         this.scene.events.emit('hpChanged', this.hp);
@@ -346,6 +418,29 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'hp_regen':  this.regenActive = true; break;
             case 'shield':    this.shieldHp += 2; break;
             case 'ricochet':  break; // tracked via this.upgrades array
+            case 'overload':
+                this.overloadLevel = Math.min(3, (this.overloadLevel || 0) + 1);
+                break;
+            case 'full_heal':
+                this.hp = this.maxHp;
+                this.scene.events.emit('hpChanged', this.hp);
+                this.floatText('FULL HP!', '#00ff88');
+                break;
+            case 'challenge_rampage':
+                this.damageBonus += 10;
+                this.speed       += 20;
+                this.floatText('RAMPAGE!', '#ff4444');
+                break;
+            case 'challenge_vitality':
+                this.maxHp += 50;
+                this.hp     = this.maxHp;
+                this.scene.events.emit('hpChanged', this.hp);
+                this.floatText('VITALITY!', '#44ff88');
+                break;
+            case 'challenge_blitz':
+                this.attackCdMax = Math.max(80, Math.round(this.attackCdMax * 0.5));
+                this.floatText('BLITZ!', '#ffcc00');
+                break;
         }
     }
 

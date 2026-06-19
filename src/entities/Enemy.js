@@ -10,6 +10,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             berserker:  'enemy_berserker',
             juggernaut: 'enemy_juggernaut',
             vampire:    'enemy_vampire',
+            wraith:     'enemy_wraith',
+            colossus:   'enemy_colossus',
         };
         super(scene, x, y, textures[type] || 'enemy_guard');
         scene.add.existing(this);
@@ -28,6 +30,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             berserker:  { hp: 50,  speed: 220, damage: 18, range: 42,  attackCd: 700  },
             juggernaut: { hp: 260, speed: 60,  damage: 32, range: 60,  attackCd: 1600 },
             vampire:    { hp: 90,  speed: 118, damage: 22, range: 46,  attackCd: 1100 },
+            wraith:     { hp: 55,  speed: 210, damage: 20, range: 44,  attackCd: 900  },
+            colossus:   { hp: 340, speed: 50,  damage: 35, range: 500, attackCd: 2000 },
         };
 
         const s = stats[type] || stats.guard;
@@ -91,6 +95,23 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             this.armorMod = Math.min(this.armorMod, 0.55);
             this.setScale(1.5);
             if (!isElite) this.setTint(0x888888);
+        }
+
+        if (type === 'wraith') {
+            this.teleportCd    = Phaser.Math.Between(2000, 3500);
+            this.teleportCdMax = 3000;
+            this.setAlpha(0.75);
+            if (!isElite) this.setTint(0xaa44ff);
+        }
+
+        if (type === 'colossus') {
+            this.armorMod      = 0.2;  // 80% damage reduction until staggered
+            this.staggerHpPool = 0;    // damage absorbed this window
+            this.staggerWindow = 0;    // remaining time of stagger window
+            this.staggerCd     = 0;    // stagger recharge timer
+            this.staggered     = false;
+            this.setScale(1.6);
+            if (!isElite) this.setTint(0x607d8b);
         }
 
         this.hpBar = scene.add.graphics();
@@ -160,8 +181,11 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                         const playerAbove  = player.y < this.y - 100;
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
                         if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(-720);
-                            this.jumpCd = Phaser.Math.Between(1600, 2800);
+                            // Higher jump + shorter CD when chasing player on a platform
+                            this.setVelocityY(playerAbove ? -820 : -720);
+                            this.jumpCd = playerAbove
+                                ? Phaser.Math.Between(800, 1400)
+                                : Phaser.Math.Between(1600, 2800);
                         }
                     }
                 } else {
@@ -204,8 +228,10 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                         const playerAbove  = player.y < this.y - 100;
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
                         if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(-720);
-                            this.jumpCd = Phaser.Math.Between(1600, 2800);
+                            this.setVelocityY(playerAbove ? -820 : -720);
+                            this.jumpCd = playerAbove
+                                ? Phaser.Math.Between(800, 1400)
+                                : Phaser.Math.Between(1600, 2800);
                         }
                     }
                 } else {
@@ -244,6 +270,68 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                 break;
             }
 
+            case 'wraith': {
+                // Teleporting melee — blinks to player and attacks
+                const dir = player.x > this.x ? 1 : -1;
+                this.setVelocityX(dir * this.moveSpeed * speedMult);
+
+                this.teleportCd -= delta;
+                if (this.teleportCd <= 0) {
+                    this.teleportCd = this.teleportCdMax;
+                    const offsetX = (Math.random() > 0.5 ? 60 : -60) + Phaser.Math.Between(-20, 20);
+                    this.setPosition(player.x + offsetX, player.y);
+                    this.setVelocityX(0);
+                    // Flash on teleport
+                    this.setTint(0xffffff);
+                    this.scene.time.delayedCall(80, () => { if (this.active && !this.slowed) this.setTint(0xaa44ff); });
+                }
+
+                if (dist <= this.attackRange + 10 && this.attackCd <= 0) {
+                    this.attackCd = this.attackCdMax;
+                    player.takeDamage(this.damage);
+                }
+                break;
+            }
+
+            case 'colossus': {
+                // Stagger system: track damage received; if >200 in window, stagger
+                if (this.staggerWindow > 0) {
+                    this.staggerWindow -= delta;
+                    if (this.staggerWindow <= 0) {
+                        this.staggerHpPool = 0;
+                        if (!this.staggered) this.staggerCd = 6000;
+                    }
+                }
+                if (this.staggered) {
+                    this.staggerCd -= delta;
+                    if (this.staggerCd <= 0) {
+                        this.staggered = false;
+                        this.armorMod  = 0.2;
+                        if (!this.slowed) this.setTint(0x607d8b);
+                        this._floatText('ARMORED', '#90a4ae');
+                    }
+                }
+
+                const dirC = player.x > this.x ? 1 : -1;
+                this.setVelocityX(dirC * this.moveSpeed * speedMult);
+
+                // Ranged spread shot
+                if (dist <= this.attackRange && dist > 60 && this.attackCd <= 0) {
+                    this.attackCd = this.attackCdMax;
+                    this.fireAt(player, enemyBullets);
+                    // Also fire flanking shots in phase if staggered
+                    if (this.staggered) {
+                        this.scene.time.delayedCall(120, () => { if (this.active) this.fireAt(player, enemyBullets); });
+                        this.scene.time.delayedCall(240, () => { if (this.active) this.fireAt(player, enemyBullets); });
+                    }
+                } else if (dist <= 60 && this.attackCd <= 0) {
+                    // Melee if cornered
+                    this.attackCd = this.attackCdMax;
+                    player.takeDamage(this.damage);
+                }
+                break;
+            }
+
             case 'spawner':
                 this.setVelocityX(0);
                 this.spawnTimer += delta;
@@ -277,6 +365,22 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     hit(amount, isLifeSteal = false) {
+        // Colossus stagger tracking
+        if (this.enemyType === 'colossus' && !this.staggered) {
+            if (this.staggerWindow <= 0) this.staggerWindow = 3000;
+            this.staggerHpPool += amount;
+            if (this.staggerHpPool >= 200) {
+                this.staggered     = true;
+                this.staggerWindow = 0;
+                this.staggerHpPool = 0;
+                this.staggerCd     = 2000;
+                this.armorMod      = 1;
+                this.setTint(0xff4444);
+                this._floatText('STAGGERED!', '#ff6666');
+                this.scene.cameras.main.shake(150, 0.009);
+            }
+        }
+
         // Shield absorbs all damage while active
         if (this.enemyType === 'shielded' && this.shieldHp > 0) {
             this.shieldHp -= amount;
@@ -327,6 +431,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         else if (this.enemyType === 'miniboss')   this.setTint(0xff4400);
         else if (this.enemyType === 'berserker')  this.setTint(0xff4400);
         else if (this.enemyType === 'juggernaut') this.setTint(0x888888);
+        else if (this.enemyType === 'wraith')     this.setTint(0xaa44ff);
+        else if (this.enemyType === 'colossus')   this.setTint(this.staggered ? 0xff4444 : 0x607d8b);
         else this.clearTint();
     }
 

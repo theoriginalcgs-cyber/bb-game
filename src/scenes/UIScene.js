@@ -37,6 +37,11 @@ export default class UIScene extends Phaser.Scene {
             fontSize: '14px', color: '#cccccc',
         }).setOrigin(1, 0);
 
+        // Coin counter (right, below enemy count)
+        this.coinTxt = this.add.text(W - 16, 38, '', {
+            fontSize: '13px', color: '#ffd700',
+        }).setOrigin(1, 0);
+
         // Status message
         this.statusTxt = this.add.text(W / 2, 680, '', {
             fontSize: '18px', color: '#ffcc00', fontStyle: 'bold',
@@ -92,6 +97,7 @@ export default class UIScene extends Phaser.Scene {
         const agent   = this.registry.get('agentKey')      ?? 'jett';
         const enemies = this.registry.get('enemyCount')    ?? 0;
         const done    = this.registry.get('roomDone')      ?? false;
+        const coins   = this.registry.get('coins')         ?? 0;
 
         // HP bar
         const pct = Math.max(0, hp / maxHp);
@@ -116,6 +122,9 @@ export default class UIScene extends Phaser.Scene {
         // Enemy count
         this.enemyTxt.setText(done ? '✓ ALL CLEAR' : `ENEMIES: ${enemies}`);
         this.enemyTxt.setColor(done ? '#44ff44' : '#cccccc');
+
+        // Coins
+        this.coinTxt.setText(`⬡ ${coins}`).setVisible(coins > 0);
 
         // Status
         this.statusTxt.setText(done ? '▶ REACH THE EXIT DOOR' : '');

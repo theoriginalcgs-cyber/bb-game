@@ -11,6 +11,7 @@ const ALL_UPGRADES = [
     { id: 'hp_regen',   name: 'REGENERATION', desc: 'Restore 2 HP every 2 seconds',   color: '#88ff88' },
     { id: 'ricochet',   name: 'RICOCHET',     desc: 'Bullets bounce off walls once',  color: '#ff8c00' },
     { id: 'shield',     name: 'SHIELD',       desc: 'Absorb 2 hits of damage (stackable)', color: '#4488ff' },
+    { id: 'overload',   name: 'OVERLOAD',     desc: 'Every 8th bullet deals 3× damage\n(stacks reduce trigger to 4)', color: '#ff1744' },
 ];
 
 export default class UpgradeScene extends Phaser.Scene {

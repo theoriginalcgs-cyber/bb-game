@@ -4,7 +4,7 @@ import Boss from '../entities/Boss.js';
 import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
 
-const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm'];
+const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm', 'killjoy', 'chamber', 'kayo'];
 const ROOM_W  = 1440;
 const GROUND_Y = 648;
 
@@ -30,6 +30,15 @@ export default class GameScene extends Phaser.Scene {
         this.alive          = true;
         this.showingUpgrade = false;
         this.bossMusic      = new BossMusic();
+
+        // Coin + event state
+        this.coins             = 0;
+        this.eventType         = null;  // 'shop' | 'puzzle' | 'minigame'
+        this._pendingUpgrades  = 0;
+        this._eventRestriction = null;
+        this._minigameWave     = 0;
+        this._puzzleDoorReady  = false;
+        this.registry.set('coins', 0);
 
         // Curse state
         this.activeCurse  = null;
@@ -63,6 +72,11 @@ export default class GameScene extends Phaser.Scene {
         this.toxicPools    = this.physics.add.staticGroup();
         this.bossWalls     = this.physics.add.staticGroup();
         this.viperOrbs     = this.physics.add.group();
+        this.chamberTraps  = this.physics.add.staticGroup();
+        this.kayoKnives    = this.physics.add.staticGroup();
+
+        // Kayo suppression state
+        this.kayoSuppressed = false;
 
         // Viper's Pit state
         this.viperPitActive   = false;
@@ -113,11 +127,38 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.overlap(this.playerBullets, this.enemyGroup, (bullet, enemy) => {
-            const ls    = bullet.isLifeSteal;
-            const isIce = bullet.isIceOrb;
-            bullet.destroy();
-            enemy.hit(bullet.damage || 20, ls);
+            const ls       = bullet.isLifeSteal;
+            const isIce    = bullet.isIceOrb;
+            const piercing = bullet.piercing;
+            const dmg      = bullet.damage || 20;
+
+            if (!piercing) bullet.destroy();
+            else bullet.piercedCount = (bullet.piercedCount || 0) + 1;
+
+            enemy.hit(dmg, ls);
             if (isIce) enemy.applySlowEffect(3000);
+
+            // Sage Tier-1 weapon: Cryoshot slows on every hit
+            if (bullet.isCryo && !isIce) enemy.applySlowEffect(1000);
+
+            // Reyna Tier-1 weapon: Drain Round — heal 2 HP per bullet hit
+            if (bullet.isDrain && this.player.active) this.player.gainHp(2);
+
+            // Phoenix Tier-1 weapon: Hot Rounds — small fire zone on hit
+            if (bullet.isHotRound && enemy.active) {
+                const fx = this.add.circle(enemy.x, enemy.y, 18, 0xff5722, 0.65);
+                this.time.delayedCall(600, () => { if (fx?.active) fx.destroy(); });
+                // Brief burn to nearby enemies
+                this.enemyGroup.getChildren().forEach(e => {
+                    if (!e.active || e === enemy) return;
+                    if (Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 52) {
+                        e.hit(Math.round(dmg * 0.4), false);
+                    }
+                });
+            }
+
+            // Destroy piercing bullet after hitting 3 enemies
+            if (piercing && bullet.piercedCount >= 3 && bullet.active) bullet.destroy();
         });
 
         this.physics.add.overlap(this.playerBullets, this.toxicPools, (bullet, pool) => {
@@ -171,6 +212,22 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
+        // Chamber trap: slow player on contact
+        this.physics.add.overlap(this.player, this.chamberTraps, (player, trap) => {
+            if (trap._trapCd && trap._trapCd > this.time.now) return;
+            trap._trapCd = this.time.now + 3500;
+            this.player.applyTrap(3000);
+        });
+
+        // Kayo knife: suppress player ability when nearby
+        this.physics.add.overlap(this.player, this.kayoKnives, (player, knife) => {
+            if (knife._suppressCd && knife._suppressCd > this.time.now) return;
+            knife._suppressCd = this.time.now + 4500;
+            this.kayoSuppressed = true;
+            this.player.floatText('SUPPRESSED!', '#80deea');
+            this.time.delayedCall(4000, () => { this.kayoSuppressed = false; });
+        });
+
         this.physics.add.overlap(this.player, this.healthDrops, (player, drop) => {
             drop.destroy();
             this.player.gainHp(28);
@@ -186,20 +243,25 @@ export default class GameScene extends Phaser.Scene {
             if (this.roomDone && !this.showingUpgrade) this.openUpgradeScreen();
         });
 
-        this.events.on('resume',        this.onSceneResumed,   this);
-        this.events.on('spawnFireball', this.onSpawnFireball,  this);
-        this.events.on('dropHealth',    this.onDropHealth,     this);
-        this.events.on('dropPowerup',   this.onDropPowerup,    this);
-        this.events.on('enemyDied',     this.onEnemyDied,      this);
-        this.events.on('dashDamage',    this.onDashDamage,     this);
-        this.events.on('spawnIceOrb',   this.onSpawnIceOrb,    this);
-        this.events.on('bossKilled',    () => this.bossMusic.stop(), this);
-        this.events.on('lifeStealKill', (amt) => this.player.gainHp(amt), this);
-        this.events.on('hpChanged',     (hp)  => this.registry.set('playerHp', hp), this);
-        this.events.on('playerDied',    this.onPlayerDied,     this);
-        this.events.on('requestSpawn',  this.onSpawnRequest,   this);
-        this.events.on('viperPitStart', this.onViperPitStart,  this);
-        this.events.on('viperPitEnd',   this.onViperPitEnd,    this);
+        this.events.on('resume',              this.onSceneResumed,        this);
+        this.events.on('spawnFireball',       this.onSpawnFireball,       this);
+        this.events.on('dropHealth',          this.onDropHealth,          this);
+        this.events.on('dropPowerup',         this.onDropPowerup,         this);
+        this.events.on('enemyDied',           this.onEnemyDied,           this);
+        this.events.on('dashDamage',          this.onDashDamage,          this);
+        this.events.on('spawnIceOrb',         this.onSpawnIceOrb,         this);
+        this.events.on('bossKilled',          () => this.bossMusic.stop(), this);
+        this.events.on('lifeStealKill',       (amt) => this.player.gainHp(amt), this);
+        this.events.on('hpChanged',           (hp)  => this.registry.set('playerHp', hp), this);
+        this.events.on('playerDied',          this.onPlayerDied,          this);
+        this.events.on('requestSpawn',        this.onSpawnRequest,        this);
+        this.events.on('viperPitStart',       this.onViperPitStart,       this);
+        this.events.on('viperPitEnd',         this.onViperPitEnd,         this);
+        this.events.on('chamberTrapSpawn',    this.onChamberTrapSpawn,    this);
+        this.events.on('kayoKnifeSpawn',      this.onKayoKnifeSpawn,      this);
+        this.events.on('kayoUltStart',        this.onKayoUltStart,        this);
+        this.events.on('kayoUltEnd',          this.onKayoUltEnd,          this);
+        this.events.on('killjoyTurretsPlaced',this.onKilljoyTurretsPlaced,this);
 
         this.input.on('pointerdown', (pointer) => {
             if (this.alive) this.player.shoot(this.playerBullets, pointer.worldX, pointer.worldY);
@@ -258,29 +320,35 @@ export default class GameScene extends Phaser.Scene {
             this.spawnMiniBoss(startX);
 
         } else {
-            const spawns = LevelGenerator.generate(
-                this, this.groundGroup, this.platformGroup, roomIndex, startX, this.floor
-            );
-            spawns.forEach(({ x, y, type, isElite }) => {
-                const e = new Enemy(this, x, y, type, this.floor, isElite);
-                if (this.activeCurse === 'frenzy')    e.moveSpeed = Math.round(e.moveSpeed * 1.25);
-                if (this.activeCurse === 'fortified') e.armorMod  = 0.8;
-                this.enemyGroup.add(e);
-                this.enemyCount++;
-            });
+            // 10% chance for a random event room on floor 4+
+            if (this.floor > 3 && Math.random() < 0.10) {
+                LevelGenerator.generate(this, this.groundGroup, this.platformGroup, roomIndex, startX, this.floor);
+                this._launchEvent(startX);
+            } else {
+                const spawns = LevelGenerator.generate(
+                    this, this.groundGroup, this.platformGroup, roomIndex, startX, this.floor
+                );
+                spawns.forEach(({ x, y, type, isElite }) => {
+                    const e = new Enemy(this, x, y, type, this.floor, isElite);
+                    if (this.activeCurse === 'frenzy')    e.moveSpeed = Math.round(e.moveSpeed * 1.25);
+                    if (this.activeCurse === 'fortified') e.armorMod  = 0.8;
+                    this.enemyGroup.add(e);
+                    this.enemyCount++;
+                });
 
-            // Apply player-affecting curses now that player exists (floor > 5 guarantee)
-            if (this.player) this._applyCurse(this.activeCurse);
+                // Apply player-affecting curses now that player exists (floor > 5 guarantee)
+                if (this.player) this._applyCurse(this.activeCurse);
 
-            // Start void timer (delay decreases with floor, void speeds up)
-            const delay = Math.max(14000, 28000 - this.floor * 450);
-            this._voidTimer = this.time.delayedCall(delay, () => {
-                if (!this.roomDone) {
-                    this.voidActive = true;
-                    this.voidSpeed  = 40 + this.floor * 1.5;
-                    this._showVoidWarning();
-                }
-            });
+                // Start void timer (delay decreases with floor, void speeds up)
+                const delay = Math.max(14000, 28000 - this.floor * 450);
+                this._voidTimer = this.time.delayedCall(delay, () => {
+                    if (!this.roomDone) {
+                        this.voidActive = true;
+                        this.voidSpeed  = 40 + this.floor * 1.5;
+                        this._showVoidWarning();
+                    }
+                });
+            }
         }
 
         // Announce curse
@@ -317,6 +385,17 @@ export default class GameScene extends Phaser.Scene {
                 this.cameras.main.flash(600, 255, 255, 255);
                 this.tweens.add({ targets: txt, alpha: 0, y: 160, duration: 3200, delay: 800, onComplete: () => txt.destroy() });
             });
+        } else if (this.floor > 1 && this.floor % 10 === 0 && zone === prevZone) {
+            // Layout style shift within the same zone (floor 40, 50, 60 ...)
+            const LAYOUT_NAMES = ['SCATTERED', 'TOWER', 'STAIRCASE'];
+            const style = Math.floor(this.floor / 10) % 3;
+            const label = LAYOUT_NAMES[style];
+            this.time.delayedCall(600, () => {
+                const txt = this.add.text(this.scale.width / 2, 200, `LAYOUT SHIFT  ·  ${label}`, {
+                    fontSize: '22px', color: '#aaddff', fontStyle: 'bold', letterSpacing: 4,
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
+                this.tweens.add({ targets: txt, alpha: 0, y: 160, duration: 2800, delay: 600, onComplete: () => txt.destroy() });
+            });
         }
     }
 
@@ -328,7 +407,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.bossMusic.play(type);
 
-        const colors = { viper:'#cc44ff', blaze:'#ff6600', phantom:'#00e5ff', titan:'#cc8833', storm:'#ffff00' };
+        const colors = { viper:'#cc44ff', blaze:'#ff6600', phantom:'#00e5ff', titan:'#cc8833', storm:'#ffff00', killjoy:'#ffee00', chamber:'#ffe082', kayo:'#80deea' };
         const col = colors[type] || '#ff0000';
         this.cameras.main.flash(400, 180, 0, 0);
 
@@ -501,6 +580,61 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    onChamberTrapSpawn(x, y) {
+        const trap = this.chamberTraps.create(x, y, 'chamber_trap');
+        if (!trap) return;
+        trap.setImmovable(true);
+        trap.refreshBody();
+        // Visual pulse on the trap
+        this.tweens.add({ targets: trap, alpha: 0.4, yoyo: true, repeat: -1, duration: 600 });
+        // Traps expire after 18s
+        this.time.delayedCall(18000, () => { if (trap?.active) trap.destroy(); });
+    }
+
+    onKayoKnifeSpawn(x, y) {
+        const knife = this.kayoKnives.create(x, y, 'kayo_knife');
+        if (!knife) return;
+        knife.setImmovable(true);
+        knife.refreshBody();
+        this.tweens.add({ targets: knife, alpha: 0.5, yoyo: true, repeat: -1, duration: 400 });
+        // Knife expires after 5s
+        this.time.delayedCall(5000, () => {
+            if (knife?.active) {
+                this.tweens.add({ targets: knife, alpha: 0, duration: 500, onComplete: () => knife?.destroy() });
+            }
+        });
+    }
+
+    onKayoUltStart() {
+        this.kayoSuppressed = true;
+        const W = this.scale.width;
+        const txt = this.add.text(W / 2, 260, 'SUPPRESSED!', {
+            fontSize: '32px', color: '#80deea', fontStyle: 'bold',
+            stroke: '#003344', strokeThickness: 3,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(15);
+        this.tweens.add({ targets: txt, alpha: 0, y: 220, duration: 2200, delay: 600, onComplete: () => txt.destroy() });
+    }
+
+    onKayoUltEnd() {
+        this.kayoSuppressed = false;
+    }
+
+    onKilljoyTurretsPlaced(positions) {
+        // Draw visual turret indicators on the ground
+        positions.forEach(tp => {
+            const g = this.add.graphics();
+            g.fillStyle(0xffee00, 0.85);
+            g.fillRect(tp.x - 12, tp.y - 18, 24, 20);
+            g.fillStyle(0x888800, 0.9);
+            g.fillRect(tp.x - 8, tp.y - 14, 16, 12);
+            g.fillStyle(0xffee00, 1);
+            g.fillCircle(tp.x, tp.y - 18, 5);
+            // Store reference for cleanup
+            if (!this._killjoyTurretGfx) this._killjoyTurretGfx = [];
+            this._killjoyTurretGfx.push(g);
+        });
+    }
+
     onDropPowerup(x, y, type) {
         const drop = this.powerupDrops.create(x, y - 10, type);
         if (!drop) return;
@@ -535,11 +669,24 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
+        this.coins++;
+        this.registry.set('coins', this.coins);
         this._checkRoomClear();
     }
 
     _checkRoomClear() {
         if (this.roomDone) return;
+
+        // Puzzle: block door spawn until we're ready (event scene launched)
+        if (this.eventType === 'puzzle' && !this._puzzleDoorReady) return;
+
+        // Minigame: handle wave progression instead of normal room-clear
+        if (this.eventType === 'minigame') {
+            const stillAlive = this.enemyGroup.getChildren().filter(e => e.active);
+            if (stillAlive.length > 0) { this.enemyCount = stillAlive.length; return; }
+            this._onMinigameWaveCleared();
+            return;
+        }
 
         // Ground truth: count actually living non-spawned enemies in the group.
         // This is the authoritative check — the counter is a fast-path hint only.
@@ -581,33 +728,99 @@ export default class GameScene extends Phaser.Scene {
 
     openUpgradeScreen() {
         this.showingUpgrade = true;
-        const isBossFloor = this.floor % 10 === 0;
+        const isBossFloor   = this.floor % 10 === 0;
+
+        // Puzzle event: give bonus upgrade if player beat the timer
+        if (this.eventType === 'puzzle') {
+            const expired = this.registry.get('puzzleExpired');
+            this._pendingUpgrades = expired ? 1 : 2;
+            this.registry.set('puzzleExpired', null);
+            this.eventType = null;
+            if (this.scene.isActive('EventScene')) this.scene.stop('EventScene');
+            if (!expired) {
+                const cx  = this.cameras.main.scrollX + this.scale.width / 2;
+                const txt = this.add.text(cx, 260, '⚡ CHALLENGE COMPLETE — BONUS UPGRADE!', {
+                    fontSize: '22px', color: '#00e5ff', fontStyle: 'bold',
+                }).setOrigin(0.5).setScrollFactor(0);
+                this.tweens.add({ targets: txt, alpha: 0, y: 220, duration: 2200, delay: 600, onComplete: () => txt.destroy() });
+            }
+        }
+
         if (isBossFloor && this.player.abilityLevel < 2) {
-            this.scene.launch('AbilityUpgradeScene', {
-                agentKey:     this.agentKey,
-                abilityLevel: this.player.abilityLevel + 1,
-            });
+            // Show ability upgrade scene first, then regular upgrades follow in sequence
+            const newLevel = this.player.abilityLevel + 1;
+            this.scene.launch('AbilityUpgradeScene', { agentKey: this.agentKey, abilityLevel: newLevel });
+            this.scene.pause();
         } else {
             this.scene.launch('UpgradeScene', { floor: this.floor });
+            this.scene.pause();
         }
-        this.scene.pause();
     }
 
     onSceneResumed() {
+        const shopClosed   = this.registry.get('shopClosed');
         const abilityLevel = this.registry.get('pickedAbilityLevel');
         const upgradeId    = this.registry.get('pickedUpgrade');
+        const weaponId     = this.registry.get('pickedWeapon');
 
-        if (abilityLevel != null) {
+        if (shopClosed) {
+            // Shop closed — apply all queued purchases then open the door
+            this.registry.set('shopClosed', null);
+            this.coins = this.registry.get('coins') ?? this.coins;
+            const purchases = this.registry.get('shopPurchases') || [];
+            this.registry.set('shopPurchases', []);
+            purchases.forEach(id => this.player.applyUpgrade(id));
+            this.registry.set('playerMaxHp', this.player.maxHp);
+            this.registry.set('playerHp',    this.player.hp);
+            this.showingUpgrade = false;
+            this.roomDone = true;
+            this.spawnDoor();
+
+        } else if (abilityLevel != null) {
+            // Ability scene confirmed — apply and show regular upgrades next
             this.registry.set('pickedAbilityLevel', null);
             this._applyAbilityUpgrade(abilityLevel);
+            this.scene.launch('UpgradeScene', { floor: this.floor });
+            this.scene.pause();
+
         } else if (upgradeId) {
+            // Regular upgrade picked — apply it
             this.registry.set('pickedUpgrade', null);
             this.player.applyUpgrade(upgradeId);
             this.registry.set('playerMaxHp', this.player.maxHp);
             this.registry.set('playerHp',    this.player.hp);
+
+            // If puzzle gave a bonus pick, show another upgrade card
+            if (this._pendingUpgrades > 1) {
+                this._pendingUpgrades--;
+                this.scene.launch('UpgradeScene', { floor: this.floor });
+                this.scene.pause();
+                return;
+            }
+            this._pendingUpgrades = 0;
+
+            // Check if a weapon upgrade is available (boss floors only, up to tier 2)
+            const isBossFloor = this.floor % 10 === 0;
+            if (isBossFloor && this.player.weaponLevel < 2) {
+                const newWepLevel = this.player.weaponLevel + 1;
+                this.scene.launch('WeaponUpgradeScene', { agentKey: this.agentKey, weaponLevel: newWepLevel });
+                this.scene.pause();
+            } else {
+                this.showingUpgrade = false;
+                this.advanceRoom();
+            }
+
+        } else if (weaponId) {
+            // Weapon upgrade confirmed
+            this.registry.set('pickedWeapon', null);
+            this.player.applyWeaponUpgrade(weaponId);
+            this.showingUpgrade = false;
+            this.advanceRoom();
+
+        } else {
+            this.showingUpgrade = false;
+            this.advanceRoom();
         }
-        this.showingUpgrade = false;
-        this.advanceRoom();
     }
 
     _applyAbilityUpgrade(level) {
@@ -661,6 +874,135 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    // ─── Random Event System ────────────────────────────────────────
+    _launchEvent(startX) {
+        const TYPES = ['shop', 'puzzle', 'minigame'];
+        this.eventType = TYPES[Phaser.Math.Between(0, 2)];
+
+        if (this.eventType === 'shop') {
+            this._showEventBanner('⬡ SHOP UNLOCKED', 'Spend your coins on upgrades', '#ffd700');
+            this.time.delayedCall(1800, () => {
+                this.registry.set('shopClosed',   null);
+                this.registry.set('shopPurchases', []);
+                this.scene.launch('ShopScene', { floor: this.floor, coins: this.coins });
+                this.scene.pause();
+            });
+
+        } else if (this.eventType === 'puzzle') {
+            this._puzzleDoorReady = false;
+            this.registry.set('puzzleExpired', false);
+            this._showEventBanner('⏱ PLATFORMING CHALLENGE', 'Reach the exit in time for a BONUS UPGRADE!', '#00e5ff');
+            // Brief delay so player sees the banner, then launch countdown overlay + allow door
+            this.time.delayedCall(2000, () => {
+                this.scene.launch('EventScene', { type: 'puzzle', floor: this.floor });
+                this._puzzleDoorReady = true;
+                this._checkRoomClear(); // now with 0 enemies the door will spawn
+            });
+
+        } else {
+            // Minigame
+            const RESTRICTIONS = ['no_jump', 'speed_demon', 'time_limit'];
+            this._eventRestriction = RESTRICTIONS[Phaser.Math.Between(0, 2)];
+            this._minigameWave     = 0;
+            this.registry.set('minigameWave',   0);
+            this.registry.set('minigameFailed', false);
+
+            if (this._eventRestriction === 'no_jump' && this.player) {
+                this.player.jumpLocked = true;
+            }
+
+            const RESTRICTION_NAMES = { no_jump: 'NO JUMPING', speed_demon: 'ENEMIES ARE FASTER', time_limit: '45-SECOND LIMIT' };
+            const label = RESTRICTION_NAMES[this._eventRestriction] || 'CHALLENGE';
+            this._showEventBanner(`⚔ MINIGAME — ${label}`, 'Survive 3 waves for a UNIQUE REWARD', '#ffaa00');
+            this.time.delayedCall(2200, () => {
+                this.scene.launch('EventScene', { type: 'minigame', restriction: this._eventRestriction, floor: this.floor });
+                this._spawnMinigameWave(startX);
+            });
+        }
+    }
+
+    _spawnMinigameWave(startX) {
+        this._minigameWave++;
+        this.registry.set('minigameWave', this._minigameWave);
+        this.enemyCount = 0;
+
+        const waveSizes = [0, 6, 9, 12];
+        const count     = waveSizes[Math.min(this._minigameWave, 3)];
+
+        for (let i = 0; i < count; i++) {
+            const x    = startX + Phaser.Math.Between(300, ROOM_W - 200);
+            const type = LevelGenerator.pickEnemyType(this.roomIndex, this._minigameWave, this.floor);
+            const e    = new Enemy(this, x, GROUND_Y - 38, type, this.floor, false);
+            if (this._eventRestriction === 'speed_demon') e.moveSpeed = Math.round(e.moveSpeed * 2);
+            this.enemyGroup.add(e);
+            this.enemyCount++;
+        }
+
+        const cx  = this.cameras.main.scrollX + this.scale.width / 2;
+        const txt = this.add.text(cx, 290, `WAVE ${this._minigameWave} / 3`, {
+            fontSize: '30px', color: '#ffaa00', fontStyle: 'bold',
+        }).setOrigin(0.5).setScrollFactor(0);
+        this.tweens.add({ targets: txt, alpha: 0, y: 250, duration: 1800, delay: 500, onComplete: () => txt.destroy() });
+    }
+
+    _onMinigameWaveCleared() {
+        // Check time-limit failure
+        if (this.registry.get('minigameFailed')) {
+            this._completeMinigame(false);
+            return;
+        }
+
+        if (this._minigameWave >= 3) {
+            this._completeMinigame(true);
+        } else {
+            const startX = this.roomIndex * ROOM_W;
+            this.time.delayedCall(1400, () => this._spawnMinigameWave(startX));
+        }
+    }
+
+    _completeMinigame(success) {
+        if (this.scene.isActive('EventScene')) this.scene.stop('EventScene');
+        if (this.player) this.player.jumpLocked = false;
+        this._eventRestriction = null;
+        this.eventType         = null;
+        this.registry.set('minigameFailed', false);
+
+        if (success) {
+            // Grant unique challenge upgrade immediately
+            const REWARDS = ['challenge_rampage', 'challenge_vitality', 'challenge_blitz'];
+            const reward  = REWARDS[Phaser.Math.Between(0, 2)];
+            this.player.applyUpgrade(reward);
+            this.registry.set('playerMaxHp', this.player.maxHp);
+            this.registry.set('playerHp',    this.player.hp);
+
+            const cx  = this.cameras.main.scrollX + this.scale.width / 2;
+            const txt = this.add.text(cx, 260, '✓ CHALLENGE COMPLETE — UNIQUE UPGRADE GRANTED!', {
+                fontSize: '20px', color: '#ffd700', fontStyle: 'bold',
+            }).setOrigin(0.5).setScrollFactor(0);
+            this.tweens.add({ targets: txt, alpha: 0, y: 220, duration: 2500, delay: 800, onComplete: () => txt.destroy() });
+        }
+
+        // Open door so player can leave
+        this.roomDone = true;
+        this.bossWalls.clear(true, true);
+        this.spawnDoor();
+    }
+
+    _showEventBanner(title, subtitle, color) {
+        const cx = this.cameras.main.scrollX + this.scale.width / 2;
+
+        const titleTxt = this.add.text(cx, 260, title, {
+            fontSize: '28px', color, fontStyle: 'bold', letterSpacing: 4,
+        }).setOrigin(0.5).setScrollFactor(0);
+
+        const subTxt = this.add.text(cx, 300, subtitle, {
+            fontSize: '14px', color: '#aaaaaa',
+        }).setOrigin(0.5).setScrollFactor(0);
+
+        this.tweens.add({ targets: [titleTxt, subTxt], alpha: 0, y: '-=40', duration: 2200, delay: 1400,
+            onComplete: () => { titleTxt.destroy(); subTxt.destroy(); } });
+    }
+
     advanceRoom() {
         if (!this.alive) return;
         this._clearCurse();
@@ -676,6 +1018,22 @@ export default class GameScene extends Phaser.Scene {
         this.toxicPools.clear(true, true);
         this.bossWalls.clear(true, true);
         this.viperOrbs.clear(true, true);
+        this.chamberTraps.clear(true, true);
+        this.kayoKnives.clear(true, true);
+        this.kayoSuppressed    = false;
+        this.eventType         = null;
+        this._eventRestriction = null;
+        this._pendingUpgrades  = 0;
+        this._puzzleDoorReady  = false;
+        this._minigameWave     = 0;
+        if (this.player) this.player.jumpLocked = false;
+        if (this.scene.isActive('EventScene')) this.scene.stop('EventScene');
+        this.registry.set('minigameFailed', false);
+        this.registry.set('puzzleExpired',  false);
+        if (this._killjoyTurretGfx) {
+            this._killjoyTurretGfx.forEach(g => g?.destroy());
+            this._killjoyTurretGfx = null;
+        }
         this._lastPoolDmg = 0;
         if (this._viperBg)     { this._viperBg.destroy();     this._viperBg     = null; }
         if (this._viperFog)    { this._viperFog.destroy();    this._viperFog    = null; }
@@ -715,7 +1073,8 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (Phaser.Input.Keyboard.JustDown(this.keyE) || Phaser.Input.Keyboard.JustDown(this.keyShift)) {
-            this.player.useAbility();
+            if (!this.kayoSuppressed) this.player.useAbility();
+            else this.player.floatText('SUPPRESSED', '#80deea');
         }
 
         this.enemyGroup.getChildren().forEach((e) => {
@@ -751,6 +1110,12 @@ export default class GameScene extends Phaser.Scene {
         this.registry.set('abilityReady', this.player.abilityReadyPercent());
         this.registry.set('roomDone',     this.roomDone);
         this.registry.set('enemyCount',   this.enemyCount);
+
+        // Minigame time-limit failure check
+        if (this.eventType === 'minigame' && this.registry.get('minigameFailed')) {
+            this.registry.set('minigameFailed', false);
+            this._completeMinigame(false);
+        }
 
         // Periodic safety check: catch any enemy that died silently (no kill() call)
         if (!this.roomDone && Math.floor(time / 1000) !== this._lastClearCheck) {

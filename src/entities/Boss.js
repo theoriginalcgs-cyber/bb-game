@@ -2,11 +2,14 @@ const GROUND_Y = 648;
 const ROOM_W   = 1440;
 
 const BOSS_TEXTURES = {
-    viper:   { key: 'boss_viper',   bw: 60, bh: 88, bo: [10,8], bullet: 'boss_bullet',         name: 'VIPER'   },
-    blaze:   { key: 'boss_blaze',   bw: 58, bh: 88, bo: [10,8], bullet: 'boss_bullet_blaze',   name: 'BLAZE'   },
-    phantom: { key: 'boss_phantom', bw: 56, bh: 88, bo: [10,8], bullet: 'boss_bullet_phantom', name: 'PHANTOM' },
-    titan:   { key: 'boss_titan',   bw: 60, bh: 88, bo: [14,4], bullet: 'boss_bullet_titan',   name: 'TITAN'   },
-    storm:   { key: 'boss_storm',   bw: 58, bh: 88, bo: [15,4], bullet: 'boss_bullet_storm',   name: 'STORM'   },
+    viper:   { key: 'boss_viper',   bw: 60, bh: 88, bo: [10,8], bullet: 'boss_bullet',          name: 'VIPER'   },
+    blaze:   { key: 'boss_blaze',   bw: 58, bh: 88, bo: [10,8], bullet: 'boss_bullet_blaze',    name: 'BLAZE'   },
+    phantom: { key: 'boss_phantom', bw: 56, bh: 88, bo: [10,8], bullet: 'boss_bullet_phantom',  name: 'PHANTOM' },
+    titan:   { key: 'boss_titan',   bw: 60, bh: 88, bo: [14,4], bullet: 'boss_bullet_titan',    name: 'TITAN'   },
+    storm:   { key: 'boss_storm',   bw: 58, bh: 88, bo: [15,4], bullet: 'boss_bullet_storm',    name: 'STORM'   },
+    killjoy: { key: 'boss_killjoy', bw: 56, bh: 88, bo: [16,8], bullet: 'boss_bullet_killjoy',  name: 'KILLJOY' },
+    chamber: { key: 'boss_chamber', bw: 56, bh: 88, bo: [16,8], bullet: 'boss_bullet_chamber',  name: 'CHAMBER' },
+    kayo:    { key: 'boss_kayo',    bw: 58, bh: 88, bo: [15,8], bullet: 'boss_bullet_kayo',     name: 'KAY/O'   },
 };
 
 export default class Boss extends Phaser.Physics.Arcade.Sprite {
@@ -66,6 +69,35 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         this.pulseCdMax = 3500;
         this.pulseCd    = 1500;
 
+        // KILLJOY-specific
+        this.turretPositions  = [];  // [{x,y}] populated on first update
+        this.turretFireCdMax  = this.phase === 2 ? 700 : 950;
+        this.turretFireCd     = 1200;
+        this.lockdownCdMax    = 9000;
+        this.lockdownCd       = 9000;
+        this.smgBurstTimer    = 0;
+        this.smgBurstCount    = 0;
+
+        // CHAMBER-specific
+        this.sniperWarnCdMax  = 3200;
+        this.sniperWarnCd     = 2000;
+        this.sniperFiring     = false;
+        this.sniperLine       = null;
+        this.chamberTrapCdMax = 8000;
+        this.chamberTrapCd    = 4000;
+        this.chamberAnchorL   = null;
+        this.chamberAnchorR   = null;
+
+        // KAYO-specific
+        this.kayoKnifeCdMax   = 5500;
+        this.kayoKnifeCd      = 3000;
+        this.kayoFlashCdMax   = 7000;
+        this.kayoFlashCd      = 4000;
+        this.kayoFragCdMax    = 4500;
+        this.kayoFragCd       = 2000;
+        this.kayoUltActive    = false;
+        this.kayoUltTimer     = 0;
+
         scene.registry.set('bossActive', true);
         scene.registry.set('bossHp',     this.hp);
         scene.registry.set('bossMaxHp',  this.maxHp);
@@ -86,6 +118,9 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
             case 'phantom': this._updatePhantom(player, enemyBullets, delta); break;
             case 'titan':   this._updateTitan(player, enemyBullets, delta); break;
             case 'storm':   this._updateStorm(player, enemyBullets, delta); break;
+            case 'killjoy': this._updateKilljoy(player, enemyBullets, delta); break;
+            case 'chamber': this._updateChamber(player, enemyBullets, delta); break;
+            case 'kayo':    this._updateKayo(player, enemyBullets, delta); break;
         }
 
         this.setFlipX(player.x < this.x);
@@ -110,6 +145,20 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
                     this.setTint(0xff6600);
                     break;
                 case 'storm':   this.setTint(0xffffff); break;
+                case 'killjoy':
+                    this.turretFireCdMax = Math.max(400, this.turretFireCdMax - 250);
+                    this.lockdownCdMax   = Math.max(5000, this.lockdownCdMax - 2000);
+                    this.setTint(0xffff00);
+                    break;
+                case 'chamber':
+                    this.sniperWarnCdMax = Math.max(1800, this.sniperWarnCdMax - 600);
+                    this.setTint(0xffe082);
+                    break;
+                case 'kayo':
+                    this.kayoKnifeCdMax = Math.max(3000, this.kayoKnifeCdMax - 1200);
+                    this.kayoFlashCdMax = Math.max(4000, this.kayoFlashCdMax - 1500);
+                    this.setTint(0x80deea);
+                    break;
             }
         }
 
@@ -657,6 +706,348 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         }
     }
 
+    // ─── KILLJOY ────────────────────────────────────────────────
+    _updateKilljoy(player, enemyBullets, delta) {
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+        const dir  = player.x > this.x ? 1 : -1;
+
+        // Set up turret positions once
+        if (this.turretPositions.length === 0) {
+            const rx = this.scene.roomIndex * ROOM_W;
+            this.turretPositions = [
+                { x: rx + 180, y: GROUND_Y - 24 },
+                { x: rx + ROOM_W - 180, y: GROUND_Y - 24 },
+            ];
+            this.scene.events.emit('killjoyTurretsPlaced', this.turretPositions);
+        }
+
+        this.lockdownCd    = Math.max(0, this.lockdownCd - delta);
+        this.turretFireCd  = Math.max(0, this.turretFireCd - delta);
+
+        // Keep some distance — Killjoy is a backline fighter
+        if (dist < 320) {
+            this.setVelocityX(-dir * this.moveSpeed * 0.9);
+        } else if (dist > 500) {
+            this.setVelocityX(dir * this.moveSpeed * 0.6);
+        } else {
+            this.setVelocityX(0);
+        }
+
+        // SMG burst (5 rapid bullets)
+        if (this.attackCd <= 0 && dist < 600) {
+            this.attackCd = this.attackCdMax;
+            this._killjoySmgBurst(player, enemyBullets);
+        }
+
+        // Turret fire from fixed positions
+        if (this.turretFireCd <= 0) {
+            this.turretFireCd = this.turretFireCdMax;
+            this._killjoyTurretFire(player, enemyBullets);
+        }
+
+        // Lockdown pulse — ring of bullets
+        if (this.lockdownCd <= 0) {
+            this.lockdownCd = this.lockdownCdMax;
+            this._killjoyLockdown(enemyBullets);
+        }
+    }
+
+    _killjoySmgBurst(player, bullets) {
+        const count = this.phase === 2 ? 5 : 3;
+        for (let i = 0; i < count; i++) {
+            this.scene.time.delayedCall(i * 100, () => {
+                if (!this.active) return;
+                const angle  = Phaser.Math.Angle.Between(this.x, this.y - 20, player.x, player.y);
+                const spread = (Math.random() - 0.5) * 0.18;
+                const b      = bullets.create(this.x, this.y - 20, this.bulletKey);
+                if (!b) return;
+                b.setVelocity(Math.cos(angle + spread) * 420, Math.sin(angle + spread) * 420);
+                b.setGravityY(-900);
+                b.damage = Math.round(this.damage * 0.7);
+                this.scene.time.delayedCall(2000, () => { if (b?.active) b.destroy(); });
+            });
+        }
+    }
+
+    _killjoyTurretFire(player, bullets) {
+        const fireRate = this.phase === 2 ? 2 : 1;
+        this.turretPositions.forEach(tp => {
+            for (let f = 0; f < fireRate; f++) {
+                this.scene.time.delayedCall(f * 200, () => {
+                    if (!this.active) return;
+                    const angle = Phaser.Math.Angle.Between(tp.x, tp.y, player.x, player.y);
+                    const b     = bullets.create(tp.x, tp.y, this.bulletKey);
+                    if (!b) return;
+                    b.setVelocity(Math.cos(angle) * 360, Math.sin(angle) * 360);
+                    b.setGravityY(-900);
+                    b.damage = Math.round(this.damage * 0.6);
+                    b.setTint(0xffee00);
+                    this.scene.time.delayedCall(2200, () => { if (b?.active) b.destroy(); });
+                });
+            }
+        });
+    }
+
+    _killjoyLockdown(bullets) {
+        this.showOverlayText('LOCKDOWN!', '#ffee00', 32);
+        this.scene.cameras.main.flash(200, 255, 238, 0);
+        const count = 14;
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const b     = bullets.create(this.x, this.y - 20, this.bulletKey);
+            if (!b) continue;
+            b.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
+            b.setGravityY(-900);
+            b.damage = Math.round(this.damage * 0.8);
+            b.setTint(0xffee00);
+            this.scene.time.delayedCall(2800, () => { if (b?.active) b.destroy(); });
+        }
+    }
+
+    // ─── CHAMBER ────────────────────────────────────────────────
+    _updateChamber(player, enemyBullets, delta) {
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+        const dir  = player.x > this.x ? 1 : -1;
+
+        this.sniperWarnCd  = Math.max(0, this.sniperWarnCd - delta);
+        this.chamberTrapCd = Math.max(0, this.chamberTrapCd - delta);
+        this.teleportCd    = Math.max(0, this.teleportCd - delta);
+
+        // Don't move while sniper warning is active
+        if (this.sniperFiring) {
+            this.setVelocityX(0);
+            return;
+        }
+
+        // Prefers long range
+        if (dist < 350) {
+            this.setVelocityX(-dir * this.moveSpeed * 0.95);
+        } else if (dist > 600) {
+            this.setVelocityX(dir * this.moveSpeed * 0.5);
+        } else {
+            this.setVelocityX(0);
+        }
+
+        // Melee fallback if cornered
+        if (dist < 70 && this.attackCd <= 0) {
+            this.attackCd = this.attackCdMax;
+            player.takeDamage(this.damage);
+        }
+
+        // Telegraphed sniper shot
+        if (this.sniperWarnCd <= 0 && !this.sniperFiring) {
+            this.sniperWarnCd = this.sniperWarnCdMax;
+            this._chamberSnipeWarning(player, enemyBullets);
+        }
+
+        // Place traps periodically
+        if (this.chamberTrapCd <= 0) {
+            this.chamberTrapCd = this.chamberTrapCdMax;
+            this._chamberPlaceTraps();
+        }
+
+        // Phase 2: teleport + double shot
+        if (this.phase === 2 && this.teleportCd <= 0) {
+            this.teleportCd = this.teleportCdMax * 0.8;
+            this._chamberTeleport(player, enemyBullets);
+        }
+    }
+
+    _chamberSnipeWarning(player, bullets) {
+        this.sniperFiring = true;
+        this.setVelocityX(0);
+
+        // Draw red laser line from boss to player
+        const line = this.scene.add.graphics();
+        line.lineStyle(2, 0xff2222, 0.7);
+        line.beginPath();
+        line.moveTo(this.x, this.y - 20);
+        line.lineTo(player.x, player.y);
+        line.strokePath();
+        this.sniperLine = line;
+        this.showOverlayText('!', '#ff2222', 32);
+
+        // Pulse the laser line
+        this.scene.tweens.add({ targets: line, alpha: 0.3, yoyo: true, duration: 200, repeat: 3 });
+
+        // Fire high-damage shot after 900ms
+        this.scene.time.delayedCall(900, () => {
+            if (!this.active) return;
+            if (this.sniperLine) { this.sniperLine.destroy(); this.sniperLine = null; }
+            this.sniperFiring = false;
+
+            const shots = this.phase === 2 ? 2 : 1;
+            for (let i = 0; i < shots; i++) {
+                this.scene.time.delayedCall(i * 150, () => {
+                    if (!this.active) return;
+                    const angle = Phaser.Math.Angle.Between(this.x, this.y - 20, player.x, player.y);
+                    const b     = bullets.create(this.x, this.y - 20, this.bulletKey);
+                    if (!b) return;
+                    b.setVelocity(Math.cos(angle) * 440, Math.sin(angle) * 440);
+                    b.setGravityY(-900);
+                    b.damage = Math.round(this.damage * 1.8);
+                    b.setScale(1.3);
+                    this.scene.time.delayedCall(3000, () => { if (b?.active) b.destroy(); });
+                });
+            }
+        });
+    }
+
+    _chamberPlaceTraps() {
+        const rx = this.scene.roomIndex * ROOM_W;
+        const positions = [
+            rx + Phaser.Math.Between(200, 500),
+            rx + Phaser.Math.Between(900, 1200),
+        ];
+        positions.forEach(tx => {
+            this.scene.events.emit('chamberTrapSpawn', tx, GROUND_Y - 8);
+        });
+    }
+
+    _chamberTeleport(player, bullets) {
+        const rx      = this.scene.roomIndex * ROOM_W;
+        const offsets = [-420, -280, 280, 420];
+        const chosen  = offsets[Phaser.Math.Between(0, offsets.length - 1)];
+        const newX    = Phaser.Math.Clamp(player.x + chosen, rx + 80, rx + ROOM_W - 80);
+
+        this.scene.cameras.main.flash(160, 255, 224, 130);
+        this.setAlpha(0);
+        this.scene.time.delayedCall(280, () => {
+            if (!this.active) return;
+            this.setPosition(newX, this.y);
+            this.setVelocityX(0);
+            this.setAlpha(1);
+            this.showOverlayText('RENDEZ-VOUS', '#ffe082', 26);
+            // Immediately fire after teleport
+            this._chamberSnipeWarning(player, bullets);
+        });
+    }
+
+    // ─── KAYO ───────────────────────────────────────────────────
+    _updateKayo(player, enemyBullets, delta) {
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+        const dir  = player.x > this.x ? 1 : -1;
+
+        this.kayoKnifeCd = Math.max(0, this.kayoKnifeCd - delta);
+        this.kayoFlashCd = Math.max(0, this.kayoFlashCd - delta);
+        this.kayoFragCd  = Math.max(0, this.kayoFragCd  - delta);
+
+        // Ultimate timer
+        if (this.kayoUltActive) {
+            this.kayoUltTimer -= delta;
+            if (this.kayoUltTimer <= 0) {
+                this.kayoUltActive = false;
+                this.scene.events.emit('kayoUltEnd');
+                if (this.phase === 2) this.setTint(0x80deea); else this.clearTint();
+            }
+        }
+
+        // Aggressive chase
+        const spd = this.kayoUltActive ? this.moveSpeed * 1.3 : this.moveSpeed;
+        if (dist > 70) {
+            this.setVelocityX(dir * spd);
+            if (this.body.blocked.down && dist > 200) {
+                const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                if (blockedHoriz) { this.setVelocityY(-720); }
+            }
+        } else {
+            this.setVelocityX(0);
+            if (this.attackCd <= 0) {
+                this.attackCd = this.attackCdMax;
+                player.takeDamage(this.damage);
+            }
+        }
+
+        // Burst fire at range
+        if (dist > 120 && this.attackCd <= 0) {
+            this.attackCd = this.attackCdMax;
+            const count = this.kayoUltActive ? 5 : (this.phase === 2 ? 4 : 3);
+            this.fireBurst(player, enemyBullets, count);
+        }
+
+        // Suppression knife
+        if (this.kayoKnifeCd <= 0) {
+            this.kayoKnifeCd = this.kayoKnifeCdMax;
+            this._kayoThrowKnife(player);
+        }
+
+        // FLASH/drive — screen flash then instant burst
+        if (this.kayoFlashCd <= 0) {
+            this.kayoFlashCd = this.kayoFlashCdMax;
+            this._kayoFlash(player, enemyBullets);
+        }
+
+        // Frag grenade
+        if (this.kayoFragCd <= 0) {
+            this.kayoFragCd = this.kayoFragCdMax;
+            this._kayoFrag(player, enemyBullets);
+        }
+
+        // Phase 2 ultimate trigger (replaces chargeCd)
+        if (this.phase === 2 && this.chargeCd <= 0 && !this.kayoUltActive) {
+            this.chargeCd    = this.chargeCdMax;
+            this.kayoUltActive = true;
+            this.kayoUltTimer  = 6000;
+            this.scene.events.emit('kayoUltStart');
+            this.setTint(0xffffff);
+            this.showOverlayText('ZERO/POINT!', '#80deea', 34);
+            this.scene.cameras.main.flash(400, 0, 200, 255);
+        }
+    }
+
+    _kayoThrowKnife(player) {
+        const dir   = player.x > this.x ? 1 : -1;
+        const landX = this.x + dir * Phaser.Math.Between(180, 340);
+        this.scene.events.emit('kayoKnifeSpawn', landX, GROUND_Y - 8);
+        this.showOverlayText('NULL/CMD', '#80deea', 24);
+    }
+
+    _kayoFlash(player, bullets) {
+        this.scene.cameras.main.flash(180, 255, 255, 255);
+        this.scene.time.delayedCall(180, () => {
+            if (!this.active) return;
+            const count = this.phase === 2 ? 5 : 4;
+            this.fireBurst(player, bullets, count);
+        });
+    }
+
+    _kayoFrag(player, bullets) {
+        const dir   = player.x > this.x ? 1 : -1;
+        const b     = bullets.create(this.x, this.y - 20, this.bulletKey);
+        if (!b) return;
+        b.setVelocity(dir * 360, -320);
+        b.setGravityY(-900);
+        b.damage  = 0;
+        b._fragBounced = false;
+        b.setTint(0x80deea);
+
+        // On ground bounce: destroy and spawn 3 radial bullets
+        const checkBounce = this.scene.time.addEvent({
+            delay: 50, repeat: 60,
+            callback: () => {
+                if (!b?.active) { checkBounce.remove(); return; }
+                if (b.body?.blocked.down && !b._fragBounced) {
+                    b._fragBounced = true;
+                    const bx = b.x, by = b.y;
+                    b.destroy();
+                    checkBounce.remove();
+                    for (let i = 0; i < 3; i++) {
+                        const a  = Phaser.Math.Angle.Between(bx, by, player.x, player.y) + (i - 1) * 0.4;
+                        const nb = bullets.create(bx, by, this.bulletKey);
+                        if (!nb) continue;
+                        nb.setVelocity(Math.cos(a) * 380, Math.sin(a) * 380);
+                        nb.setGravityY(-900);
+                        nb.damage = Math.round(this.damage * 0.9);
+                        nb.setTint(0x80deea);
+                        this.scene.time.delayedCall(1800, () => { if (nb?.active) nb.destroy(); });
+                    }
+                }
+            },
+        });
+
+        this.scene.time.delayedCall(3000, () => { if (b?.active) b.destroy(); });
+    }
+
     // ─── SHARED ─────────────────────────────────────────────────
     fireBurst(player, bullets, count) {
         const baseAngle  = Phaser.Math.Angle.Between(this.x, this.y - 20, player.x, player.y);
@@ -694,8 +1085,8 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         this.scene.time.delayedCall(80, () => {
             if (!this.active) return;
             if (this.phase === 2) {
-                const tints = { viper: 0xff3333, blaze: 0xffffff, phantom: 0x00ffff, titan: 0xff6600, storm: 0xffffff };
-                this.setTint(tints[this.bossType]);
+                const tints = { viper: 0xff3333, blaze: 0xffffff, phantom: 0x00ffff, titan: 0xff6600, storm: 0xffffff, killjoy: 0xffff00, chamber: 0xffe082, kayo: 0x80deea };
+                this.setTint(tints[this.bossType] ?? 0xffffff);
             } else {
                 this.clearTint();
             }
@@ -716,11 +1107,31 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
     kill(isLifeSteal) {
         if (!this.active) return;
 
+        // Mark inactive immediately so _checkRoomClear() doesn't count this boss
+        // as still alive when enemyDied fires below
+        this.setActive(false);
+        this.setVisible(false);
+
+        // Clean up Chamber's laser line if active
+        if (this.bossType === 'chamber' && this.sniperLine) {
+            this.sniperLine.destroy();
+            this.sniperLine = null;
+        }
+
+        // End Kayo ultimate if active mid-fight
+        if (this.bossType === 'kayo' && this.kayoUltActive) {
+            this.scene.events.emit('kayoUltEnd');
+        }
+
         // Clean up Viper's ultimate state if she dies mid-ultimate
         if (this.bossType === 'viper') {
-            if (this.scene.viperOrbs) this.scene.viperOrbs.clear(true, true);
-            // Always clean up pit state regardless of whether ultimate was active
-            this.scene.events.emit('viperPitEnd');
+            if (this.scene.viperOrbs) {
+                this.scene.viperOrbs.getChildren().forEach(orb => {
+                    if (orb.pulseTween) orb.pulseTween.stop();
+                });
+                this.scene.viperOrbs.clear(true, true);
+            }
+            if (this.scene.viperPitActive) this.scene.events.emit('viperPitEnd');
         }
 
         this.scene.registry.set('bossActive', false);
