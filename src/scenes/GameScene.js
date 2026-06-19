@@ -130,12 +130,27 @@ export default class GameScene extends Phaser.Scene {
             const ls       = bullet.isLifeSteal;
             const isIce    = bullet.isIceOrb;
             const piercing = bullet.piercing;
-            const dmg      = bullet.damage || 20;
+            let   dmg      = bullet.damage || 20;
 
             if (!piercing) bullet.destroy();
             else bullet.piercedCount = (bullet.piercedCount || 0) + 1;
 
+            // Deathmark: 4× damage on next hit after a kill
+            if (this.player.deathmark && this.player.deathmarkReady) {
+                dmg *= 4;
+                this.player.deathmarkReady = false;
+                const flash = this.add.circle(enemy.x, enemy.y, 24, 0xff0044, 0.9);
+                this.tweens.add({ targets: flash, alpha: 0, scaleX: 3, scaleY: 3, duration: 280, onComplete: () => flash.destroy() });
+            }
+
+            // Armor pierce: temporarily reduce enemy armor resistance
+            const origArmor = enemy.armorMod;
+            if (this.player.armorPierce > 0 && enemy.armorMod < 1) {
+                enemy.armorMod = origArmor + (1 - origArmor) * this.player.armorPierce;
+            }
+
             enemy.hit(dmg, ls);
+            enemy.armorMod = origArmor;
             if (isIce) enemy.applySlowEffect(3000);
 
             // Sage Tier-1 weapon: Cryoshot slows on every hit
@@ -154,6 +169,17 @@ export default class GameScene extends Phaser.Scene {
                     if (Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 52) {
                         e.hit(Math.round(dmg * 0.4), false);
                     }
+                });
+            }
+
+            // Chaos Rounds: 15% chance AoE explosion (30 dmg within 80px)
+            if (this.player.chaosRound && enemy.active && Math.random() < 0.15) {
+                const cx = enemy.x, cy = enemy.y;
+                const boom = this.add.circle(cx, cy, 12, 0xff8800, 0.85);
+                this.tweens.add({ targets: boom, scaleX: 6, scaleY: 6, alpha: 0, duration: 320, onComplete: () => boom.destroy() });
+                this.enemyGroup.getChildren().forEach(e => {
+                    if (!e.active || e === enemy) return;
+                    if (Phaser.Math.Distance.Between(e.x, e.y, cx, cy) < 80) e.hit(30, false);
                 });
             }
 
@@ -266,6 +292,12 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('kayoUltStart',        this.onKayoUltStart,        this);
         this.events.on('kayoUltEnd',          this.onKayoUltEnd,          this);
         this.events.on('killjoyTurretsPlaced',this.onKilljoyTurretsPlaced,this);
+        this.events.on('shieldChanged', (val) => this.registry.set('playerShield', val), this);
+        this.events.on('temporalFieldActive', () => {
+            this.enemyGroup.getChildren().forEach(e => {
+                if (e.active) e.moveSpeed = Math.round((e.moveSpeed || 80) * 0.85);
+            });
+        }, this);
 
         this.input.on('pointerdown', (pointer) => {
             if (this.alive) this.player.shoot(this.playerBullets, pointer.worldX, pointer.worldY);
@@ -275,10 +307,11 @@ export default class GameScene extends Phaser.Scene {
         this.scene.bringToTop('UIScene');
 
         this.time.delayedCall(50, () => {
-            this.registry.set('playerHp',    this.player.hp);
-            this.registry.set('playerMaxHp', this.player.maxHp);
-            this.registry.set('floor',       this.floor);
-            this.registry.set('agentKey',    this.agentKey);
+            this.registry.set('playerHp',     this.player.hp);
+            this.registry.set('playerMaxHp',  this.player.maxHp);
+            this.registry.set('floor',        this.floor);
+            this.registry.set('agentKey',     this.agentKey);
+            this.registry.set('playerShield', this.player.shieldHp ?? 0);
         });
     }
 
@@ -336,6 +369,7 @@ export default class GameScene extends Phaser.Scene {
                     const e = new Enemy(this, x, y, type, this.floor, isElite);
                     if (this.activeCurse === 'frenzy')    e.moveSpeed = Math.round(e.moveSpeed * 1.25);
                     if (this.activeCurse === 'fortified') e.armorMod  = 0.8;
+                    if (this.player?.temporalField)       e.moveSpeed = Math.round(e.moveSpeed * 0.85);
                     this.enemyGroup.add(e);
                     this.enemyCount++;
                 });
@@ -497,6 +531,7 @@ export default class GameScene extends Phaser.Scene {
         const e = new Enemy(this, x, y, 'runner', this.floor, false);
         e.isSpawnedEnemy = true;
         e.parentSpawner  = spawner || null;
+        if (this.player?.temporalField) e.moveSpeed = Math.round(e.moveSpeed * 0.85);
         this.enemyGroup.add(e);
     }
 
@@ -677,8 +712,10 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
-        this.coins++;
+        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.ceil(this.floor / 5);
+        this.coins += coinAmt;
         this.registry.set('coins', this.coins);
+        if (this.player.deathmark) this.player.deathmarkReady = true;
         this._checkRoomClear();
     }
 
@@ -942,6 +979,7 @@ export default class GameScene extends Phaser.Scene {
             const type = LevelGenerator.pickEnemyType(this.roomIndex, this._minigameWave, this.floor);
             const e    = new Enemy(this, x, GROUND_Y - 38, type, this.floor, false);
             if (this._eventRestriction === 'speed_demon') e.moveSpeed = Math.round(e.moveSpeed * 2);
+            if (this.player?.temporalField)               e.moveSpeed = Math.round(e.moveSpeed * 0.85);
             this.enemyGroup.add(e);
             this.enemyCount++;
         }

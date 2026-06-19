@@ -1,17 +1,22 @@
-const SHOP_POOL = [
+// Standard items (available alongside shop-exclusives)
+const STANDARD_POOL = [
     { id: 'dmg_up',    name: 'FIREPOWER',    desc: '+6 bullet damage',              color: '#ff4655', basePrice: 300 },
     { id: 'speed_up',  name: 'SWIFT FEET',   desc: '+30 movement speed',            color: '#00e5ff', basePrice: 250 },
     { id: 'max_hp',    name: 'FORTIFY',      desc: '+25 max HP  |  restore 15 HP',  color: '#44ff88', basePrice: 270 },
     { id: 'atk_speed', name: 'RAPID FIRE',   desc: 'Attack cooldown -60ms',         color: '#ffaa00', basePrice: 320 },
-    { id: 'armor',     name: 'ARMOR',        desc: 'Take 15% less damage',          color: '#aaaaff', basePrice: 350 },
-    { id: 'lifedrain', name: 'LIFEDRAIN',    desc: 'Kills restore 6 HP',            color: '#ce93d8', basePrice: 280 },
-    { id: 'hp_regen',  name: 'REGENERATION', desc: 'Restore 2 HP every 2 seconds', color: '#88ff88', basePrice: 240 },
-    { id: 'shield',    name: 'SHIELD',       desc: 'Absorb 2 hits of damage',       color: '#4488ff', basePrice: 380 },
-    { id: 'overload',  name: 'OVERLOAD',     desc: 'Every 8th bullet deals 3×',     color: '#ff1744', basePrice: 420 },
-    { id: 'crit',      name: 'LETHAL',       desc: '+25% crit chance (2× damage)',  color: '#ff8800', basePrice: 360 },
-    { id: 'ability_cd',name: 'HASTE',        desc: 'Ability cooldown -15%',         color: '#40c4ff', basePrice: 290 },
-    { id: 'full_heal', name: 'FULL RESTORE', desc: 'Restore ALL HP instantly',      color: '#00ff88', basePrice: 460 },
-    { id: 'multishot', name: 'MULTISHOT',    desc: 'Every 4th shot fires 3 bullets',color: '#ffff44', basePrice: 340 },
+    { id: 'full_heal', name: 'FULL RESTORE', desc: 'Restore ALL HP instantly',      color: '#00ff88', basePrice: 400 },
+];
+
+// Shop-exclusive items — only available here
+const EXCLUSIVE_POOL = [
+    { id: 'shop_second_wind', name: 'SECOND WIND',    desc: 'Once per run: survive a lethal hit with 1 HP instead of dying',           color: '#00ffcc', basePrice: 700, exclusive: true },
+    { id: 'shop_glass_cannon',name: 'GLASS CANNON',   desc: '+40% damage dealt, but take 30% more damage from all sources',            color: '#ff6644', basePrice: 550, exclusive: true },
+    { id: 'shop_berserker',   name: 'BERSERKER',      desc: 'Below 30% HP: attack speed doubles and damage +25%',                      color: '#ff2200', basePrice: 620, exclusive: true },
+    { id: 'shop_chaos_rounds',name: 'CHAOS ROUNDS',   desc: '15% chance on hit: explosion dealing 30 AoE damage to nearby enemies',    color: '#ff8800', basePrice: 580, exclusive: true },
+    { id: 'shop_gold_magnet', name: 'GOLD MAGNET',    desc: 'Kills drop double coins for the rest of the run',                         color: '#ffd700', basePrice: 480, exclusive: true },
+    { id: 'shop_armor_pierce',name: 'ARMOR PIERCE',   desc: 'Bullets ignore 50% of enemy armor — shreds armored and elite enemies',    color: '#cc88ff', basePrice: 600, exclusive: true },
+    { id: 'shop_temporal',    name: 'TEMPORAL FIELD', desc: 'All enemies move 15% slower permanently for the rest of the run',         color: '#44ddff', basePrice: 650, exclusive: true },
+    { id: 'shop_deathmark',   name: 'DEATHMARK',      desc: 'After each kill, your next bullet deals 4× damage',                       color: '#ff0044', basePrice: 680, exclusive: true },
 ];
 
 const REROLL_BASE = 100;
@@ -74,14 +79,28 @@ export default class ShopScene extends Phaser.Scene {
     }
 
     _pickItems() {
-        const pool  = [...SHOP_POOL];
+        const purchased = this.registry.get('shopPurchases') || [];
         const items = [];
-        for (let i = 0; i < 3 && pool.length; i++) {
+
+        // Always include one shop-exclusive (filter already-bought ones)
+        const availableExclusive = EXCLUSIVE_POOL.filter(e => !purchased.includes(e.id));
+        if (availableExclusive.length > 0) {
+            const pool = [...availableExclusive];
             const idx  = Phaser.Math.Between(0, pool.length - 1);
-            const item = { ...pool.splice(idx, 1)[0] };
-            item.price = Math.round(item.basePrice + this.floor * 10);
+            const item = { ...pool[idx] };
+            item.price = Math.round(item.basePrice * (1 + this.floor * 0.05));
             items.push(item);
         }
+
+        // Fill remaining 2 slots with standard items
+        const stdPool = [...STANDARD_POOL];
+        while (items.length < 3 && stdPool.length > 0) {
+            const idx  = Phaser.Math.Between(0, stdPool.length - 1);
+            const item = { ...stdPool.splice(idx, 1)[0] };
+            item.price = Math.round(item.basePrice * (1 + this.floor * 0.05));
+            items.push(item);
+        }
+
         return items;
     }
 

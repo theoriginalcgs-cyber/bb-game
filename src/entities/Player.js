@@ -65,6 +65,21 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this._trapTimer         = 0;
         this._trapSpeed         = 0;
 
+        // Shop-exclusive item flags
+        this.secondWind      = false;
+        this.secondWindUsed  = false;
+        this.glassCannon     = false;
+        this.damageTakenMult = 1.0;
+        this.hasBerserker    = false;
+        this.berserkActive   = false;
+        this._berserkBaseCd  = 0;
+        this.chaosRound      = false;
+        this.goldMagnet      = false;
+        this.armorPierce     = 0;
+        this.temporalField   = false;
+        this.deathmark       = false;
+        this.deathmarkReady  = false;
+
         // Weapon upgrade state
         this.weaponLevel        = 0;
         this._weaponShotCounter = 0;
@@ -156,6 +171,22 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         } else if (!this.regenActive || this.hp >= this.maxHp) {
             this.regenTimer = 0;
         }
+
+        // Berserker: toggle fire-rate boost when HP drops below 30%
+        if (this.hasBerserker) {
+            const shouldBerserk = this.hp < this.maxHp * 0.3;
+            if (shouldBerserk && !this.berserkActive) {
+                this.berserkActive  = true;
+                this._berserkBaseCd = this.attackCdMax;
+                this.attackCdMax    = Math.max(80, Math.round(this.attackCdMax * 0.5));
+                this.setTint(0xff4400);
+                this.floatText('BERSERK!', '#ff4400');
+            } else if (!shouldBerserk && this.berserkActive) {
+                this.berserkActive = false;
+                if (this._berserkBaseCd) this.attackCdMax = this._berserkBaseCd;
+                if (!this.invincible && !this._powerupInvincible) this.clearTint();
+            }
+        }
     }
 
     shoot(bullets, targetX, targetY) {
@@ -230,6 +261,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             finalDmg = Math.round(dmg * 1.4);
         }
 
+        // Berserker: +25% damage below 30% HP
+        if (this.hasBerserker && this.berserkActive) {
+            finalDmg = Math.round(finalDmg * 1.25);
+        }
+
         const bullet = bullets.create(x, y, 'bullet');
         if (!bullet) return;
         bullet.setVelocity(vx, vy);
@@ -248,6 +284,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         if (this.agentKey === 'sage'   && this.weaponLevel >= 1) bullet.isCryo      = true;
         if (this.agentKey === 'sage'   && this.weaponLevel >= 2 && this._weaponShotCounter % 6 === 0) {
             this.shieldHp = Math.min(this.shieldHp + 1, 8);
+            this.scene.events.emit('shieldChanged', this.shieldHp);
             this.floatText('+1 SHIELD', '#66bbff');
         }
         if (this.agentKey === 'reyna'  && this.weaponLevel >= 1) bullet.isDrain      = true;
@@ -341,13 +378,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
         if (this.shieldHp > 0) {
             this.shieldHp--;
+            this.scene.events.emit('shieldChanged', this.shieldHp);
             this.floatText('SHIELD!', '#4488ff');
             this.setTint(0x4488ff);
             this.scene.time.delayedCall(200, () => { if (this.active && !this._powerupInvincible) this.clearTint(); });
             return;
         }
 
-        const reduced = Math.max(1, Math.round(amount * this.damageReduction));
+        const reduced = Math.max(1, Math.round(amount * this.damageReduction * this.damageTakenMult));
         this.hp -= reduced;
         this.scene.events.emit('hpChanged', this.hp);
 
@@ -357,6 +395,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.time.delayedCall(550, () => { this.invincible = false; });
 
         if (this.hp <= 0) {
+            if (this.secondWind && !this.secondWindUsed) {
+                this.hp = 1;
+                this.secondWindUsed = true;
+                this.scene.events.emit('hpChanged', this.hp);
+                this.floatText('SECOND WIND!', '#00ff88');
+                this.setTint(0x00ff88);
+                this.scene.time.delayedCall(400, () => { if (this.active) this.clearTint(); });
+                return;
+            }
             this.hp = 0;
             this.scene.events.emit('playerDied');
         }
@@ -416,7 +463,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'ability_cd':this.abilityCdMax = Math.max(500, Math.round(this.abilityCdMax * 0.85)); break;
             case 'lifedrain': this.lifedrain += 6; break;
             case 'hp_regen':  this.regenActive = true; break;
-            case 'shield':    this.shieldHp += 2; break;
+            case 'shield':
+                this.shieldHp += 2;
+                this.scene.events.emit('shieldChanged', this.shieldHp);
+                break;
             case 'ricochet':  break; // tracked via this.upgrades array
             case 'overload':
                 this.overloadLevel = Math.min(3, (this.overloadLevel || 0) + 1);
@@ -440,6 +490,43 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'challenge_blitz':
                 this.attackCdMax = Math.max(80, Math.round(this.attackCdMax * 0.5));
                 this.floatText('BLITZ!', '#ffcc00');
+                break;
+
+            // ── Shop-exclusive upgrades ────────────────────────────────
+            case 'shop_second_wind':
+                this.secondWind = true;
+                this.floatText('SECOND WIND', '#00ff88');
+                break;
+            case 'shop_glass_cannon':
+                this.glassCannon     = true;
+                this.damageBonus    += 20;
+                this.damageTakenMult = 1.3;
+                this.floatText('GLASS CANNON', '#ff4444');
+                break;
+            case 'shop_berserker':
+                this.hasBerserker = true;
+                this.floatText('BERSERKER', '#ff6600');
+                break;
+            case 'shop_chaos_rounds':
+                this.chaosRound = true;
+                this.floatText('CHAOS ROUNDS', '#ff44ff');
+                break;
+            case 'shop_gold_magnet':
+                this.goldMagnet = true;
+                this.floatText('GOLD MAGNET', '#ffd700');
+                break;
+            case 'shop_armor_pierce':
+                this.armorPierce = 0.6;
+                this.floatText('ARMOR PIERCE', '#00ccff');
+                break;
+            case 'shop_temporal':
+                this.temporalField = true;
+                this.scene.events.emit('temporalFieldActive');
+                this.floatText('TEMPORAL FIELD', '#aa88ff');
+                break;
+            case 'shop_deathmark':
+                this.deathmark = true;
+                this.floatText('DEATHMARK', '#ff0044');
                 break;
         }
     }

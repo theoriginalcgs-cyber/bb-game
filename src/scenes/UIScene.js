@@ -42,6 +42,13 @@ export default class UIScene extends Phaser.Scene {
             fontSize: '13px', color: '#ffd700',
         }).setOrigin(1, 0);
 
+        // Shield bar (small blue squares below ability bar, hidden until shield > 0)
+        this.shieldContainer = this.add.container(46, 70);
+        this.shieldSquares   = [];
+        this.shieldLabel     = this.add.text(30, 68, '', {
+            fontSize: '10px', color: '#4488ff',
+        }).setVisible(false);
+
         // Status message
         this.statusTxt = this.add.text(W / 2, 680, '', {
             fontSize: '18px', color: '#ffcc00', fontStyle: 'bold',
@@ -125,6 +132,22 @@ export default class UIScene extends Phaser.Scene {
 
         // Coins
         if (this.coinTxt) this.coinTxt.setText(`⬡ ${coins}`).setVisible(coins > 0);
+
+        // Shield bar
+        const shield = this.registry.get('playerShield') ?? 0;
+        this.shieldSquares.forEach(sq => sq.destroy());
+        this.shieldSquares = [];
+        this.shieldContainer.removeAll();
+        if (shield > 0) {
+            this.shieldLabel.setText('🛡').setVisible(true);
+            for (let i = 0; i < shield; i++) {
+                const sq = this.add.rectangle(i * 20, 6, 14, 10, 0x4488ff);
+                this.shieldContainer.add(sq);
+                this.shieldSquares.push(sq);
+            }
+        } else {
+            this.shieldLabel.setVisible(false);
+        }
 
         // Status
         this.statusTxt.setText(done ? '▶ REACH THE EXIT DOOR' : '');
