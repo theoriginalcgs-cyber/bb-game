@@ -36,9 +36,9 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
         const s = stats[type] || stats.guard;
 
-        // Floor scaling: 7% HP/dmg per floor, 3% speed, capped
-        const floorScale = Math.min(3,   1 + Math.max(0, floor - 1) * 0.07);
-        const speedScale = Math.min(1.8, 1 + Math.max(0, floor - 1) * 0.03);
+        // Floor scaling: 5% HP/dmg per floor, 2.5% speed, capped
+        const floorScale = Math.min(2.5, 1 + Math.max(0, floor - 1) * 0.05);
+        const speedScale = Math.min(1.7, 1 + Math.max(0, floor - 1) * 0.025);
 
         this.maxHp       = Math.round(s.hp     * floorScale);
         this.hp          = this.maxHp;

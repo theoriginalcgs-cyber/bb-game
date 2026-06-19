@@ -29,14 +29,14 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         const tier = Math.floor(floor / 10);
         this.tier  = tier;
 
-        this.maxHp       = 900 + tier * 600;
+        this.maxHp       = 1500 + floor * 400;                     // scales per floor (floor 10 → 5500)
         this.hp          = this.maxHp;
         this.phase       = 1;
-        this.moveSpeed   = 82 + tier * 9;
-        this.damage      = 26 + tier * 5;
-        this.attackCdMax = Math.max(1100, 2100 - tier * 200);
+        this.moveSpeed   = 90 + tier * 12;
+        this.damage      = 20 + floor * 2;                         // floor 10 → 40, floor 20 → 60
+        this.attackCdMax = Math.max(1000, 2000 - tier * 150);
         this.attackCd    = Math.round(this.attackCdMax * 0.6);
-        this.chargeCdMax = Math.max(3500, 6000 - tier * 450);
+        this.chargeCdMax = Math.max(3200, 5800 - tier * 420);
         this.chargeCd    = Math.round(this.chargeCdMax * 0.5);
 
         // Shared flags
@@ -187,9 +187,9 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
     _checkPhase2() {
         if (this.phase === 1 && this.hp <= this.maxHp * 0.5) {
             this.phase        = 2;
-            this.moveSpeed   += 65;
-            this.attackCdMax  = Math.max(900, this.attackCdMax - 450);
-            this.damage      += 8;
+            this.moveSpeed   += 70;
+            this.attackCdMax  = Math.max(900, this.attackCdMax - 420);
+            this.damage      += Math.max(10, Math.round(this.damage * 0.22));
             this.scene.cameras.main.shake(500, 0.016);
             this.showOverlayText('ENRAGED!', '#ff0000', 40);
 
@@ -535,7 +535,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
     _viperFirePoison(player, bullets, count) {
         const baseAngle = Phaser.Math.Angle.Between(this.x, this.y - 20, player.x, player.y);
         const spread    = 0.26;
-        const dmg       = (this.phase === 2 ? 16 : 12) + this.tier * 3;
+        const dmg       = Math.round(this.damage * (this.phase >= 2 ? 0.55 : 0.42));
 
         for (let i = 0; i < count; i++) {
             const angle  = baseAngle + (i - Math.floor(count / 2)) * spread;

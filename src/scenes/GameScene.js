@@ -4,6 +4,8 @@ import Boss from '../entities/Boss.js';
 import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
 import { StormMusic } from '../audio/StormMusic.js';
+import { TitanMusic } from '../audio/TitanMusic.js';
+import { BlazeMusic } from '../audio/BlazeMusic.js';
 
 const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm', 'killjoy', 'chamber', 'kayo'];
 const ROOM_W  = 1440;
@@ -346,6 +348,8 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('bossKilled',          () => {
             this.bossMusic.stop();
             if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
+            if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
+            if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
         }, this);
         this.events.on('lifeStealKill',       (amt) => this.player.gainHp(amt), this);
         this.events.on('hpChanged',           (hp)  => this.registry.set('playerHp', hp), this);
@@ -516,7 +520,17 @@ export default class GameScene extends Phaser.Scene {
         boss.setDepth(2); // above bgtile (0) so clouds/effects at depth 1 show correctly
         this.enemyCount = 1;
 
-        if (type !== 'storm') this.bossMusic.play(type);
+        if (type !== 'storm' && type !== 'titan' && type !== 'blaze') this.bossMusic.play(type);
+        if (type === 'titan') {
+            if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
+            this._titanMusic = new TitanMusic();
+            this._titanMusic.start();
+        }
+        if (type === 'blaze') {
+            if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
+            this._blazeMusic = new BlazeMusic();
+            this._blazeMusic.start();
+        }
 
         const colors = { viper:'#cc44ff', blaze:'#ff6600', phantom:'#00e5ff', titan:'#cc8833', storm:'#ffff00', killjoy:'#ffee00', chamber:'#ffe082', kayo:'#80deea' };
         const col = colors[type] || '#ff0000';
@@ -1422,6 +1436,8 @@ export default class GameScene extends Phaser.Scene {
         if (this._stormMusic)      { this._stormMusic.stop();          this._stormMusic      = null; }
         if (this._stormRain)       { this._stormRain.destroy();        this._stormRain       = null; }
         if (this._titanBg)         { this._titanBg.destroy();          this._titanBg         = null; }
+        if (this._titanMusic)      { this._titanMusic.stop();          this._titanMusic      = null; }
+        if (this._blazeMusic)      { this._blazeMusic.stop();          this._blazeMusic      = null; }
         this.viperOrbs.clear(true, true);
         this.blazeFireZones.clear(true, true);
         this.bossOrbs.clear(true, true);
@@ -1467,6 +1483,8 @@ export default class GameScene extends Phaser.Scene {
         this.alive = false;
         this.bossMusic.stop();
         if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
+        if (this._titanMusic) { this._titanMusic.stop(); this._titanMusic = null; }
+        if (this._blazeMusic) { this._blazeMusic.stop(); this._blazeMusic = null; }
         if (this._titanBg)    { this._titanBg.destroy();          this._titanBg    = null; }
         this.registry.set('finalFloor', this.floor);
         this.registry.set('finalAgent', this.agentKey);
