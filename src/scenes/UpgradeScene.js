@@ -19,6 +19,7 @@ const ALL_UPGRADES = [
     { id: 'counter',     name: 'COUNTER STRIKE',  desc: 'After taking damage: +60% dmg for 3s',         color: '#e91e63' },
     { id: 'last_stand',  name: 'LAST STAND',      desc: 'Once per floor: survive a lethal hit\n(+2s invincibility)', color: '#ffd700' },
     { id: 'double_tap',  name: 'DOUBLE TAP',      desc: 'Every 5th shot instantly fires a 2nd bullet',  color: '#00bcd4' },
+    { id: 'crit_dmg',   name: 'KILLING BLOW',    desc: 'Crit damage +0.5× (starts 2×, stacks to 4×)', color: '#ffe033' },
 ];
 
 function isUpgradeCapped(id, ps) {
@@ -38,6 +39,7 @@ function isUpgradeCapped(id, ps) {
         case 'double_tap':   return (ps.upgrades || []).includes('double_tap');
         case 'explosive':    return (ps.explosiveLevel   || 0) >= 2;
         case 'executioner':  return (ps.executionerLevel || 0) >= 2;
+        case 'crit_dmg':     return (ps.critMultiplier   || 2.0) >= 4.0;
         default:             return false;
     }
 }

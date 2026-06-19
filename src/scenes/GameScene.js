@@ -801,6 +801,7 @@ export default class GameScene extends Phaser.Scene {
             upgrades:         [...this.player.upgrades],
             explosiveLevel:   this.player.explosiveLevel,
             executionerLevel: this.player.executionerLevel,
+            critMultiplier:   this.player.critMultiplier,
             regenActive:      this.player.regenActive,
         };
     }

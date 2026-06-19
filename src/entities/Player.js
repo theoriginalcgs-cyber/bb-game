@@ -89,6 +89,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.overloadLevel      = 0;
         this._overloadCounter   = 0;
 
+        // Crit damage multiplier (default 2×, stacks via upgrade)
+        this.critMultiplier     = 2.0;
+
         // New upgrade state
         this.explosiveLevel      = 0;
         this.executionerLevel    = 0;
@@ -207,8 +210,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
         let dmg = this.damage + this.damageBonus;
         if (this.critChance > 0 && Math.random() < this.critChance) {
-            dmg *= 2;
-            this.floatText('CRIT!', '#ffff44');
+            dmg = Math.round(dmg * this.critMultiplier);
+            this.floatText(`CRIT ×${this.critMultiplier}!`, '#ffff44');
         }
 
         const originX = this.x;
@@ -565,6 +568,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             case 'double_tap':
                 this.doubleTap = true;
                 this.floatText('DOUBLE TAP!', '#00bcd4');
+                break;
+            case 'crit_dmg':
+                this.critMultiplier = Math.min(4.0, this.critMultiplier + 0.5);
+                this.floatText(`CRIT ×${this.critMultiplier}!`, '#ffff44');
                 break;
             case 'full_heal':
                 this.hp = this.maxHp;
