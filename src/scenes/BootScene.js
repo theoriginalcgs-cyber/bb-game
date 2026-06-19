@@ -1649,72 +1649,121 @@ export default class BootScene extends Phaser.Scene {
     // ── TITAN — stone colossus with lava-crack body ───────────────
     _drawBossTitan() {
         const g = this.make.graphics({ x: 0, y: 0, add: false });
-        const rock = 0x3e2723, rockL = 0x5d4037;
-        const stone = 0x4e342e, stoneL = 0x6d4c41;
-        const lava = 0xff6f00, lavaL = 0xffb300;
-        const crack = 0xbcaaa4;
+        const FP = (coords, col, a = 1) => {
+            g.fillStyle(col, a);
+            const pts = [];
+            for (let i = 0; i < coords.length; i += 2) pts.push({ x: coords[i], y: coords[i + 1] });
+            g.fillPoints(pts, true);
+        };
 
-        // Rocky head crown
-        g.fillStyle(rockL);
-        g.fillRect(20, 0,  8,  6);
-        g.fillRect(34, 0,  6,  4);
-        g.fillRect(44, 0,  8,  6);
-        g.fillRect(28, 0,  8,  8);    // tallest spike
-        // Massive boxy head
-        g.fillStyle(rock);
-        g.fillRect(10, 4, 62, 28);
-        g.fillStyle(rockL);
-        g.fillRect(12, 4, 60,  8);    // top lighter
-        // Rock texture cracks on head
-        g.fillStyle(crack);
-        g.fillRect(14, 8,  4, 20);
-        g.fillRect(30, 6,  4, 22);
-        g.fillRect(50, 8,  4, 20);
-        g.fillRect(64,10,  4, 18);
-        // Sunken lava eyes
-        g.fillStyle(0x1a0a00);
-        g.fillRect(16,14, 18, 10);
-        g.fillRect(48,14, 18, 10);
-        g.fillStyle(lavaL);
-        g.fillRect(18,15, 14,  8);
-        g.fillRect(50,15, 14,  8);
-        g.fillStyle(lava);
-        g.fillRect(20,16, 10,  6);
-        g.fillRect(52,16, 10,  6);
-        // Giant body
-        g.fillStyle(stone);
-        g.fillRect(6, 30, 70, 50);
-        g.fillStyle(stoneL);
-        g.fillRect(8, 30, 68, 10);    // chest top
-        // Body cracks
-        g.fillStyle(crack);
-        g.fillRect(10,34,  6, 40);
-        g.fillRect(26,32,  4, 42);
-        g.fillRect(48,32,  4, 42);
-        g.fillRect(64,34,  6, 40);
-        g.fillStyle(lava);
-        g.fillRect(10,46,  6,  8);
-        g.fillRect(64,46,  6,  8);
-        g.fillRect(26,54,  4,  8);
-        g.fillRect(48,54,  4,  8);
-        // Massive arms
-        g.fillStyle(rock);
-        g.fillRect(0, 28,  8, 34);
-        g.fillRect(74,28, 14, 34);
-        // Boulder fists
-        g.fillStyle(rockL);
-        g.fillRect(0, 60, 10, 14);
-        g.fillRect(72,60, 16, 14);
-        g.fillStyle(crack);
-        g.fillRect(2, 64,  6,  4);
-        g.fillRect(74,64,  8,  4);
-        // Legs + rocky feet
-        g.fillStyle(stone);
-        g.fillRect(12,78, 24, 18);
-        g.fillRect(44,78, 24, 18);
-        g.fillStyle(rock);
-        g.fillRect(10,90, 28,  6);
-        g.fillRect(42,90, 28,  6);
+        // ── HEAD (jagged boulder) ─────────────────────────────────────────
+        FP([12,8, 16,2, 22,6, 28,0, 34,4, 40,0, 46,2, 52,0, 58,3, 64,0, 68,5, 72,2, 76,8,
+            78,18, 76,30, 70,36, 62,36, 44,38, 26,36, 18,36, 12,30, 10,18], 0x2e2018);
+        FP([14,10, 20,4, 28,0, 40,0, 44,6, 36,18, 24,22, 14,18], 0x4a3828);
+        FP([28,0, 40,0, 46,2, 42,12, 34,14], 0x5e4a38);
+        FP([68,5, 76,10, 78,20, 74,32, 68,36, 62,32, 66,20, 68,12], 0x1a0f08);
+        g.fillStyle(0x0a0604); g.fillRect(32, 4, 2, 30); g.fillRect(54, 4, 2, 30);
+        g.fillStyle(0xaa2200, 0.4); g.fillRect(33, 8, 1, 22); g.fillRect(55, 8, 1, 22);
+
+        // ── EYE SOCKETS ─────────────────────────────────────────────────
+        FP([14,13, 18,9, 26,9, 32,13, 34,19, 32,25, 26,27, 18,25, 14,19], 0x090604);
+        FP([16,14, 20,10, 25,10, 30,14, 32,19, 30,24, 25,26, 20,24, 16,19], 0x580800);
+        FP([18,15, 22,12, 25,12, 29,15, 30,19, 28,23, 25,25, 22,23, 18,19], 0xaa1c00);
+        FP([20,16, 22,14, 25,14, 28,16, 29,19, 27,22, 25,24, 22,22, 20,19], 0xee4000);
+        g.fillStyle(0xff7800); g.fillRect(21, 17, 7, 5);
+        g.fillStyle(0xffcc44); g.fillRect(22, 18, 5, 3);
+        g.fillStyle(0xffff90, 0.85); g.fillRect(23, 19, 2, 2);
+
+        FP([54,13, 58,9, 66,9, 72,13, 74,19, 72,25, 66,27, 58,25, 54,19], 0x090604);
+        FP([56,14, 60,10, 65,10, 70,14, 72,19, 70,24, 65,26, 60,24, 56,19], 0x580800);
+        FP([58,15, 62,12, 65,12, 69,15, 70,19, 68,23, 65,25, 62,23, 58,19], 0xaa1c00);
+        FP([60,16, 62,14, 65,14, 68,16, 69,19, 67,22, 65,24, 62,22, 60,19], 0xee4000);
+        g.fillStyle(0xff7800); g.fillRect(61, 17, 7, 5);
+        g.fillStyle(0xffcc44); g.fillRect(62, 18, 5, 3);
+        g.fillStyle(0xffff90, 0.85); g.fillRect(63, 19, 2, 2);
+
+        // ── MOUTH ────────────────────────────────────────────────────────
+        FP([22,31, 28,27, 34,30, 40,26, 44,28, 48,26, 54,30, 60,27, 66,31, 68,36, 24,36], 0x060402);
+        g.fillStyle(0x750000, 0.7); g.fillRect(26, 33, 36, 4);
+        g.fillStyle(0x4a3828);
+        for (let i = 0; i < 6; i++) g.fillRect(25 + i * 7, 27, 5, 7);
+        g.fillStyle(0x5e4a38);
+        for (let i = 0; i < 6; i++) g.fillRect(25 + i * 7, 27, 2, 5);
+
+        // ── BODY ─────────────────────────────────────────────────────────
+        FP([6,34, 22,30, 30,36, 44,34, 58,36, 66,30, 82,34,
+            84,46, 82,62, 74,70, 44,72, 14,70, 6,62, 4,46], 0x2a1e14);
+        FP([8,34, 22,30, 36,36, 44,34, 52,36, 66,30, 76,34,
+            72,50, 58,52, 44,50, 30,52, 16,50, 10,36], 0x3e2e20);
+        FP([18,34, 30,36, 36,38, 30,48, 20,50, 12,44, 12,36], 0x524032);
+        FP([66,32, 82,36, 84,48, 82,62, 74,68, 70,60, 74,48, 72,38], 0x160e08);
+        g.fillStyle(0x0a0604);
+        g.fillRect(18, 36, 2, 32); g.fillRect(68, 36, 2, 32);
+        g.fillRect(30, 50, 2, 18); g.fillRect(56, 50, 2, 18);
+        g.fillRect(8, 54, 28, 2);  g.fillRect(52, 54, 28, 2);
+        g.fillStyle(0xbb3300, 0.5);
+        g.fillRect(19, 40, 1, 24); g.fillRect(69, 40, 1, 24);
+        g.fillStyle(0xff4400, 0.35);
+        g.fillRect(9, 55, 26, 1); g.fillRect(53, 55, 26, 1);
+
+        // ── ARMS ─────────────────────────────────────────────────────────
+        FP([0,30, 8,28, 14,34, 10,60, 8,66, 0,62], 0x2a1e14);
+        FP([0,30, 7,28, 12,34, 8,58, 0,56], 0x3e2e20);
+        g.fillStyle(0x0a0604); g.fillRect(4, 38, 2, 20);
+        g.fillStyle(0xbb3300, 0.5); g.fillRect(5, 42, 1, 12);
+
+        FP([88,30, 80,28, 74,34, 78,60, 80,66, 88,62], 0x2a1e14);
+        FP([88,30, 81,28, 76,34, 80,58, 88,56], 0x3e2e20);
+        g.fillStyle(0x0a0604); g.fillRect(82, 38, 2, 20);
+        g.fillStyle(0xbb3300, 0.5); g.fillRect(83, 42, 1, 12);
+
+        // ── FISTS ────────────────────────────────────────────────────────
+        FP([0,56, 12,52, 20,56, 20,74, 10,80, 0,76], 0x2a1e14);
+        FP([0,57, 11,53, 18,57, 18,72, 8,78, 0,74], 0x3e2e20);
+        FP([0,57, 9,54, 14,60, 8,70, 0,68], 0x524032);
+        g.fillStyle(0x524032); g.fillRect(2, 52, 8, 6); g.fillRect(11, 51, 8, 6);
+        g.fillStyle(0x0a0604); g.fillRect(5, 58, 2, 14); g.fillRect(12, 58, 2, 14);
+        g.fillStyle(0xbb3300, 0.5); g.fillRect(6, 62, 1, 8); g.fillRect(13, 62, 1, 8);
+
+        FP([88,56, 76,52, 68,56, 68,74, 78,80, 88,76], 0x2a1e14);
+        FP([88,57, 77,53, 70,57, 70,72, 80,78, 88,74], 0x3e2e20);
+        FP([88,57, 79,54, 74,60, 80,70, 88,68], 0x524032);
+        g.fillStyle(0x524032); g.fillRect(78, 52, 8, 6); g.fillRect(69, 51, 8, 6);
+        g.fillStyle(0x0a0604); g.fillRect(81, 58, 2, 14); g.fillRect(74, 58, 2, 14);
+        g.fillStyle(0xbb3300, 0.5); g.fillRect(82, 62, 1, 8); g.fillRect(75, 62, 1, 8);
+
+        // ── LEGS ─────────────────────────────────────────────────────────
+        FP([14,68, 36,68, 34,96, 12,96], 0x2a1e14);
+        FP([15,69, 34,69, 32,88, 14,88], 0x3e2e20);
+        FP([15,69, 28,69, 26,80, 16,80], 0x524032);
+        g.fillStyle(0x0a0604); g.fillRect(20, 70, 2, 24); g.fillRect(28, 70, 2, 24);
+        g.fillStyle(0xbb3300, 0.4); g.fillRect(21, 74, 1, 16);
+        g.fillStyle(0xff5500, 0.55); g.fillRect(14, 90, 22, 6);
+        g.fillStyle(0xff8800, 0.4); g.fillRect(18, 92, 14, 3);
+
+        FP([52,68, 74,68, 76,96, 54,96], 0x2a1e14);
+        FP([53,69, 73,69, 72,88, 54,88], 0x3e2e20);
+        FP([53,69, 66,69, 64,80, 54,80], 0x524032);
+        g.fillStyle(0x0a0604); g.fillRect(58, 70, 2, 24); g.fillRect(66, 70, 2, 24);
+        g.fillStyle(0xbb3300, 0.4); g.fillRect(59, 74, 1, 16);
+        g.fillStyle(0xff5500, 0.55); g.fillRect(52, 90, 22, 6);
+        g.fillStyle(0xff8800, 0.4); g.fillRect(56, 92, 14, 3);
+
+        // ── LAVA CORE — drawn LAST so nothing renders over it ─────────────
+        // Outer aura glow
+        FP([24,40, 35,35, 44,33, 53,35, 64,40, 66,52, 62,64, 52,69, 44,71, 36,69, 26,64, 22,52], 0xff6600, 0.14);
+        // Dark outer ring
+        FP([28,42, 36,37, 44,35, 52,37, 60,42, 62,52, 58,62, 50,66, 44,68, 38,66, 30,62, 26,52], 0x220200);
+        // Lava layers (dark → bright)
+        FP([30,43, 37,39, 44,37, 51,39, 58,43, 60,52, 56,61, 49,65, 44,66, 39,65, 32,61, 28,52], 0x581000);
+        FP([32,44, 38,41, 44,39, 50,41, 56,44, 58,52, 54,61, 48,64, 44,65, 40,64, 34,61, 30,52], 0xaa1400);
+        FP([34,46, 39,43, 44,41, 49,43, 54,46, 56,52, 52,60, 47,63, 44,64, 41,63, 36,60, 32,52], 0xdd2e00);
+        FP([36,47, 40,45, 44,43, 48,45, 52,47, 54,52, 51,58, 46,61, 44,62, 42,61, 38,58, 34,52], 0xff5400);
+        FP([38,49, 41,47, 44,45, 47,47, 50,49, 52,52, 49,57, 46,59, 44,60, 42,59, 39,57, 36,52], 0xff8c00);
+        FP([40,51, 42,49, 44,47, 46,49, 48,51, 49,52, 47,55, 45,57, 44,58, 43,57, 41,55, 39,52], 0xffcc30);
+        // White-hot center
+        g.fillStyle(0xffee88); g.fillRect(42, 51, 5, 5);
+        g.fillStyle(0xffffe0, 0.9); g.fillRect(43, 52, 3, 3);
 
         g.generateTexture('boss_titan', 88, 96);
         g.destroy();

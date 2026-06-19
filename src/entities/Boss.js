@@ -120,13 +120,19 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         this.phantomVanishing   = false;
 
         // TITAN-specific (extended)
-        this.titanUltActive  = false;
-        this.titanUltCdMax   = Math.max(12000, 28000 - tier * 3000);
-        this.titanUltCd      = 8000;
-        this.titanLeapCdMax  = Math.max(5000, 9000 - tier * 700);
-        this.titanLeapCd     = 4000;
-        this.titanIsLeaping  = false;
-        this._titanBgDrawn   = false;
+        this.titanUltActive      = false;
+        this.titanUltCdMax       = Math.max(12000, 28000 - tier * 3000);
+        this.titanUltCd          = 8000;
+        this.titanLeapCdMax      = Math.max(5000, 9000 - tier * 700);
+        this.titanLeapCd         = 4000;
+        this.titanIsLeaping      = false;
+        this.titanRockRainCd     = 5000;
+        this.titanRockRainCdMax  = Math.max(5500, 9000 - tier * 800);
+        this.titanSweepCd        = 8000;
+        this.titanSweepCdMax     = Math.max(5500, 11000 - tier * 900);
+        this.titanSweeping       = false;
+        this._titanSweepFist     = null;
+        this._titanSweepX        = 0;
 
         // STORM-specific (extended)
         this.stormUltActive   = false;
@@ -201,17 +207,39 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
                     this.setTint(0x00ffff);
                     break;
                 case 'titan':
-                    this.armorActive    = false;
-                    this.titanLeapCdMax = Math.max(4000, this.titanLeapCdMax - 1500);
-                    this.slamCdMax      = Math.max(2500, this.slamCdMax      - 1000);
+                    this.armorActive        = false;
+                    this.titanLeapCdMax     = Math.max(4000, this.titanLeapCdMax - 1500);
+                    this.slamCdMax          = Math.max(2500, this.slamCdMax - 1000);
+                    this.titanRockRainCdMax = Math.max(4000, this.titanRockRainCdMax - 1500);
+                    this.titanSweepCdMax    = Math.max(4000, this.titanSweepCdMax - 1500);
                     this.setTint(0xff6600);
-                    // immediately throw 3 boulders
+                    // Armor shatter: camera flash + 8-directional shockwave burst
+                    this.scene.cameras.main.flash(600, 255, 80, 0);
+                    this.scene.cameras.main.shake(700, 0.03);
+                    this.showOverlayText('ARMOR SHATTERED!', '#ff6600', 36);
+                    {
+                        const dirs8 = [0, 45, 90, 135, 180, 225, 270, 315];
+                        dirs8.forEach(deg => {
+                            const rad = Phaser.Math.DegToRad(deg);
+                            const sw  = this.scene.enemyBullets.create(this.x, this.y, 'boss_shockwave');
+                            if (!sw) return;
+                            sw.setVelocity(Math.cos(rad) * 420, Math.sin(rad) * 420);
+                            sw.setGravityY(-900);
+                            sw.setScale(1.4);
+                            sw.damage = this.damage + 4;
+                            this.scene.time.delayedCall(1600, () => { if (sw?.active) sw.destroy(); });
+                        });
+                    }
+                    // Immediately throw 4 boulders and trigger rock rain
                     if (this._lastPlayer) {
-                        for (let i = 0; i < 3; i++) {
-                            this.scene.time.delayedCall(i * 400, () => {
+                        for (let i = 0; i < 4; i++) {
+                            this.scene.time.delayedCall(i * 380, () => {
                                 if (this.active && this._lastPlayer) this._titanBoulder(this._lastPlayer, this.scene.enemyBullets);
                             });
                         }
+                        this.scene.time.delayedCall(1200, () => {
+                            if (this.active && this._lastPlayer) this._titanRockRain(this._lastPlayer, this.scene.enemyBullets, 5);
+                        });
                     }
                     break;
                 case 'storm':
@@ -1107,12 +1135,6 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
 
     // ─── TITAN ──────────────────────────────────────────────────
     _updateTitan(player, enemyBullets, delta) {
-        // Draw background silhouette once
-        if (!this._titanBgDrawn) {
-            this._drawTitanSilhouette();
-            this._titanBgDrawn = true;
-        }
-
         // Ultimate check
         this.titanUltCd = Math.max(0, this.titanUltCd - delta);
         if (!this.titanUltActive && this.titanUltCd <= 0 && this.hp < this.maxHp * 0.8) {
@@ -1123,15 +1145,17 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
             this._updateTitanUltimate(player, enemyBullets, delta);
             return;
         }
+        if (this.titanSweeping) return;
 
         const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
         const dir  = player.x > this.x ? 1 : -1;
 
-        this.slamCd     = Math.max(0, this.slamCd     - delta);
-        this.titanLeapCd = Math.max(0, this.titanLeapCd - delta);
+        this.slamCd          = Math.max(0, this.slamCd          - delta);
+        this.titanLeapCd     = Math.max(0, this.titanLeapCd     - delta);
+        this.titanRockRainCd = Math.max(0, this.titanRockRainCd - delta);
+        this.titanSweepCd    = Math.max(0, this.titanSweepCd    - delta);
 
         if (this.phase === 1 && !this.armorActive) this.armorActive = true;
-
         if (this.titanIsLeaping) return;
 
         // Slow relentless advance
@@ -1150,6 +1174,12 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
             this._titanBoulder(player, enemyBullets);
         }
 
+        // Rock Rain
+        if (this.titanRockRainCd <= 0) {
+            this.titanRockRainCd = this.titanRockRainCdMax;
+            this._titanRockRain(player, enemyBullets, this.phase >= 2 ? 6 : 4);
+        }
+
         // Timed ground slam
         if (this.slamCd <= 0) {
             this.slamCd = this.phase >= 2 ? this.slamCdMax * 0.55 : this.slamCdMax;
@@ -1161,18 +1191,15 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
             this.titanLeapCd = this.titanLeapCdMax;
             this._titanLeap(player, enemyBullets);
         }
+
+        // Phase 2+: Ground Sweep
+        if (this.phase >= 2 && this.titanSweepCd <= 0) {
+            this._titanGroundSweep(player, enemyBullets);
+        }
     }
 
     _drawTitanSilhouette() {
-        const rx = this.scene.roomIndex * ROOM_W;
-        const cx = rx + ROOM_W / 2;
-        const g  = this.scene.add.graphics().setDepth(-1);
-        g.fillStyle(0x0a0a18, 0.65);
-        g.fillEllipse(cx, GROUND_Y - 400, 580, 880);  // body
-        g.fillCircle(cx, GROUND_Y - 830, 190);         // head
-        g.fillEllipse(cx - 370, GROUND_Y - 340, 190, 480); // left arm
-        g.fillEllipse(cx + 370, GROUND_Y - 340, 190, 480); // right arm
-        this._titanBgGraphic = g;
+        // Background is now drawn by GameScene._spawnTitanArena
     }
 
     _titanBoulder(player, enemyBullets) {
@@ -1273,6 +1300,125 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
                 swUp.damage = this.damage - 3;
                 this.scene.time.delayedCall(1200, () => { if (swUp?.active) swUp.destroy(); });
             }
+        });
+    }
+
+    _titanRockRain(player, enemyBullets, count = 4) {
+        const rx = this.scene.roomIndex * ROOM_W;
+        this.showOverlayText('ROCK RAIN!', '#cc4400', 28);
+        this.scene.cameras.main.shake(280, 0.014);
+
+        for (let i = 0; i < count; i++) {
+            this.scene.time.delayedCall(i * 520, () => {
+                if (!this.active) return;
+                const targetX = Phaser.Math.Between(rx + 100, rx + ROOM_W - 100);
+
+                // Shadow warning circle
+                const shadow = this.scene.add.ellipse(targetX, GROUND_Y - 6, 80, 22, 0xff5500, 0.35);
+                this.scene.tweens.add({
+                    targets: shadow, alpha: 0.72, scaleX: 1.3, duration: 260,
+                    yoyo: true, repeat: 2, onComplete: () => shadow.destroy(),
+                });
+
+                // Boulder drops after warning
+                this.scene.time.delayedCall(310, () => {
+                    if (!this.active) return;
+                    const b = enemyBullets.create(
+                        targetX + Phaser.Math.Between(-30, 30), -30, 'boss_bullet_titan'
+                    );
+                    if (!b) return;
+                    b.setScale(1.6);
+                    b.setVelocity(0, 550);
+                    b.setGravityY(-900);
+                    b.damage = this.damage + 6;
+
+                    // Impact on ground
+                    this.scene.time.delayedCall(1350, () => {
+                        if (!b?.active) return;
+                        const bx = b.x;
+                        b.destroy();
+                        this.scene.cameras.main.shake(130, 0.008);
+                        for (const d of [-1, 1]) {
+                            const sw = enemyBullets.create(bx, GROUND_Y - 10, 'boss_shockwave');
+                            if (sw) {
+                                sw.setVelocityX(d * 340);
+                                sw.setGravityY(-900);
+                                sw.damage = this.damage - 4;
+                                this.scene.time.delayedCall(1100, () => { if (sw?.active) sw.destroy(); });
+                            }
+                        }
+                    });
+                });
+            });
+        }
+    }
+
+    _titanGroundSweep(player, enemyBullets) {
+        if (this.titanSweeping) return;
+        this.titanSweeping  = true;
+        this.titanSweepCd   = this.titanSweepCdMax;
+
+        const rx   = this.scene.roomIndex * ROOM_W;
+        const dir  = player.x < this.x ? 1 : -1;
+        const fromX = dir > 0 ? rx + 60 : rx + ROOM_W - 60;
+        const toX   = dir > 0 ? rx + ROOM_W - 60 : rx + 60;
+        this._titanSweepX = fromX;
+
+        const fist = this.scene.add.graphics().setDepth(4);
+        this._titanSweepFist = fist;
+        this.setVelocityX(0);
+        this.showOverlayText('GROUND SWEEP!', '#ff8800', 30);
+
+        const drawFist = (x) => {
+            fist.clear();
+            fist.fillStyle(0x2a1e14);
+            fist.fillRect(x - 90, GROUND_Y - 110, 180, 115);
+            fist.fillStyle(0x3e2e20);
+            fist.fillRect(x - 88, GROUND_Y - 108, 176, 108);
+            fist.fillStyle(0x524032);
+            fist.fillRect(x - 86, GROUND_Y - 108, 82, 44);
+            // Knuckle row
+            for (let k = -3; k <= 3; k++) {
+                fist.fillStyle(0x4a3828);
+                fist.fillRect(x + k * 26 - 16, GROUND_Y - 114, 28, 24);
+                fist.fillStyle(0x5e4a38);
+                fist.fillRect(x + k * 26 - 14, GROUND_Y - 112, 12, 18);
+            }
+            // Lava cracks
+            fist.fillStyle(0xcc3300, 0.55);
+            fist.fillRect(x - 62, GROUND_Y - 92, 3, 78);
+            fist.fillRect(x - 22, GROUND_Y - 98, 3, 84);
+            fist.fillRect(x + 20, GROUND_Y - 98, 3, 84);
+            fist.fillRect(x + 60, GROUND_Y - 92, 3, 78);
+            fist.fillStyle(0xff6600, 0.35);
+            fist.fillRect(x - 60, GROUND_Y - 88, 1, 70);
+            fist.fillRect(x + 21, GROUND_Y - 94, 1, 78);
+            // Leading-edge lava glow
+            fist.fillStyle(0xff4400, 0.28);
+            fist.fillRect(dir > 0 ? x + 70 : x - 90, GROUND_Y - 110, 24, 110);
+        };
+
+        drawFist(fromX);
+
+        this.scene.tweens.add({
+            targets: this,
+            _titanSweepX: toX,
+            duration: 1700,
+            ease: 'Cubic.easeIn',
+            onUpdate: () => {
+                drawFist(this._titanSweepX);
+                if (player.active) {
+                    if (Math.abs(player.x - this._titanSweepX) < 92 && player.y > GROUND_Y - 116) {
+                        player.takeDamage(this.damage + 6);
+                    }
+                }
+            },
+            onComplete: () => {
+                this.scene.cameras.main.shake(420, 0.026);
+                fist.destroy();
+                this._titanSweepFist = null;
+                this.titanSweeping   = false;
+            },
         });
     }
 

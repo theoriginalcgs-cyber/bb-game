@@ -416,6 +416,7 @@ export default class GameScene extends Phaser.Scene {
             );
             if (this.currentBossType === 'viper') this._spawnViperArena(startX);
             if (this.currentBossType === 'storm') this._spawnStormArena(startX);
+            if (this.currentBossType === 'titan') this._spawnTitanArena(startX);
             this.spawnBoss(startX + ROOM_W / 2, 400);
 
         } else if (isMiniBoss) {
@@ -1095,6 +1096,153 @@ export default class GameScene extends Phaser.Scene {
         this._stormMusic.start();
     }
 
+    _spawnTitanArena(startX) {
+        const GY   = GROUND_Y;
+        const cx   = startX + ROOM_W / 2;
+        const bg   = this.add.graphics().setDepth(-3);
+
+        // Dark stone base
+        bg.fillStyle(0x100e0a);
+        bg.fillRect(startX, 0, ROOM_W, GY);
+        bg.fillStyle(0x0c0a07, 0.45);
+        for (let x = startX; x < startX + ROOM_W; x += 200) bg.fillRect(x, 0, 100, GY);
+
+        // fillPoints helper — coords relative to cx
+        const FP = (coords, col, a = 1) => {
+            bg.fillStyle(col, a);
+            const pts = [];
+            for (let i = 0; i < coords.length; i += 2) pts.push({ x: cx + coords[i], y: coords[i + 1] });
+            bg.fillPoints(pts, true);
+        };
+
+        // GIANT HEAD (looms from above, mostly off-screen at top)
+        FP([-300,-100, -190,-155, -110,-135, -55,-175, 0,-195, 55,-175, 110,-135, 190,-155, 300,-100,
+            345,-38, 370,76, 348,215, 268,290, 150,330, 0,348, -150,330, -268,290, -348,215, -370,76, -345,-38], 0x1e1410);
+        // Lit top-left facet
+        FP([-300,-100, -150,-155, 0,-195, 0,0, -110,40, -268,-38, -345,-38], 0x2e2018);
+        FP([-200,-120, -70,-175, 0,-195, 0,-76, -95,-38, -228,-78], 0x3c2c1c);
+        // Right shadow
+        FP([300,-100, 370,72, 348,215, 268,290, 0,0, 0,-195, 76,-175], 0x120c08);
+        // Head cracks
+        bg.fillStyle(0x0a0804);
+        bg.fillRect(cx - 196, -100, 8, 390); bg.fillRect(cx + 188, -100, 8, 390);
+        bg.fillRect(cx - 76, -100, 6, 368);  bg.fillRect(cx + 70, -100, 6, 368);
+        bg.fillStyle(0xcc3300, 0.28);
+        bg.fillRect(cx - 192, -80, 4, 350); bg.fillRect(cx + 192, -80, 4, 350);
+
+        // LEFT EYE SOCKET — large glowing lava eye
+        FP([-272,22, -196,-18, -116,-18, -76,22, -76,98, -116,138, -196,138, -272,98], 0x090604);
+        FP([-262,28, -200,-10, -120,-10, -84,28, -84,92, -120,130, -200,130, -262,92], 0x540a00);
+        FP([-250,34, -204,-2,  -124,-2,  -92,34, -92,86, -124,122, -204,122, -250,86], 0x991800);
+        FP([-238,40, -208,6,   -128,6,   -100,40,-100,80,-128,114, -208,114, -238,80], 0xcc2c00);
+        FP([-226,46, -212,14,  -132,14,  -108,46,-108,74,-132,106, -212,106, -226,74], 0xff5000);
+        bg.fillStyle(0xff8c00, 0.72); bg.fillRect(cx - 218, 50, 108, 22);
+        bg.fillStyle(0xffcc44, 0.62); bg.fillRect(cx - 210, 54, 92, 12);
+        bg.fillStyle(0xffffa0, 0.52); bg.fillRect(cx - 198, 56, 68, 6);
+
+        // RIGHT EYE (mirror)
+        FP([76,22, 116,-18, 196,-18, 272,22, 272,98, 196,138, 116,138, 76,98], 0x090604);
+        FP([84,28, 120,-10, 200,-10, 262,28, 262,92, 200,130, 120,130, 84,92], 0x540a00);
+        FP([92,34, 124,-2,  204,-2,  250,34, 250,86, 204,122, 124,122, 92,86], 0x991800);
+        FP([100,40,128,6,   208,6,   238,40, 238,80, 208,114, 128,114, 100,80], 0xcc2c00);
+        FP([108,46,132,14,  212,14,  226,46, 226,74, 212,106, 132,106, 108,74], 0xff5000);
+        bg.fillStyle(0xff8c00, 0.72); bg.fillRect(cx + 110, 50, 108, 22);
+        bg.fillStyle(0xffcc44, 0.62); bg.fillRect(cx + 118, 54, 92, 12);
+        bg.fillStyle(0xffffa0, 0.52); bg.fillRect(cx + 130, 56, 68, 6);
+
+        // NOSE
+        FP([-48,176, -18,158, 0,148, 18,158, 48,176, 38,228, 0,238, -38,228], 0x1a1008);
+        bg.fillStyle(0x0a0604);
+        bg.fillRect(cx - 38, 184, 30, 44); bg.fillRect(cx + 8, 184, 30, 44);
+
+        // MOUTH (cavern maw)
+        FP([-292,278,-176,248,-96,264,-48,244,0,238,48,244,96,264,176,248,292,278,312,340,0,368,-312,340], 0x060402);
+        bg.fillStyle(0x6b0000, 0.6); bg.fillRect(cx - 252, 294, 504, 58);
+        // Stone teeth
+        bg.fillStyle(0x2e2018);
+        for (let i = -4; i <= 4; i++) bg.fillRect(cx + i * 54 - 20, 250, 40, 52);
+        bg.fillStyle(0x4a3828);
+        for (let i = -4; i <= 4; i++) bg.fillRect(cx + i * 54 - 20, 250, 16, 44);
+        bg.fillStyle(0x0a0604);
+        for (let i = -3; i <= 4; i++) bg.fillRect(cx + i * 54 - 22, 250, 4, 48);
+
+        // BODY beneath face
+        FP([-370,334,-272,316,0,334,272,316,370,334,392,514,356,616,0,GY,-356,616,-392,514], 0x1a1208);
+        FP([-272,316,-174,326,0,334,174,326,272,316,252,434,0,454,-252,434], 0x261a10);
+        bg.fillStyle(0x0a0604);
+        bg.fillRect(cx - 194, 346, 10, GY - 346); bg.fillRect(cx + 184, 346, 10, GY - 346);
+        bg.fillRect(cx - 76, 386, 8, GY - 386);   bg.fillRect(cx + 68, 386, 8, GY - 386);
+        bg.fillRect(cx - 354, 478, 708, 10);
+        bg.fillStyle(0xff4400, 0.25);
+        bg.fillRect(cx - 190, 366, 5, GY - 366); bg.fillRect(cx + 189, 366, 5, GY - 366);
+        bg.fillStyle(0xff3300, 0.2); bg.fillRect(cx - 354, 482, 708, 5);
+
+        // LEFT FIST at ground level
+        const fy = GY - 230;
+        FP([-680,fy, -538,fy-58, -438,fy-18, -398,fy+82, -398,GY, -700,GY], 0x1a1008);
+        FP([-672,fy+5,-542,fy-50,-442,fy-10,-406,fy+90,-406,GY-2,-694,GY-2], 0x2e2018);
+        FP([-596,fy-2,-538,fy-48,-458,fy-12,-458,fy+82,-596,fy+82], 0x3e2e20);
+        bg.fillStyle(0x4a3828);
+        for (let k = 0; k < 4; k++) {
+            bg.fillRect(cx - 658 + k * 54, fy - 62, 42, 58);
+            bg.fillStyle(0x5e4a38);
+            bg.fillRect(cx - 656 + k * 54, fy - 60, 16, 48);
+            bg.fillStyle(0x4a3828);
+        }
+        bg.fillStyle(0xcc3300, 0.32);
+        bg.fillRect(cx - 638, fy - 18, 5, GY - fy + 18); bg.fillRect(cx - 578, fy - 28, 5, GY - fy + 28);
+        bg.fillRect(cx - 518, fy - 28, 5, GY - fy + 28); bg.fillRect(cx - 458, fy - 18, 5, GY - fy + 18);
+
+        // RIGHT FIST (mirror)
+        FP([398,fy+82, 438,fy-18, 538,fy-58, 680,fy, 700,GY, 398,GY], 0x1a1008);
+        FP([406,fy+90, 442,fy-10, 542,fy-50, 672,fy+5, 694,GY-2, 406,GY-2], 0x2e2018);
+        FP([458,fy-12, 538,fy-48, 596,fy-2, 596,fy+82, 458,fy+82], 0x3e2e20);
+        bg.fillStyle(0x4a3828);
+        for (let k = 0; k < 4; k++) {
+            bg.fillRect(cx + 418 + k * 54, fy - 62, 42, 58);
+            bg.fillStyle(0x5e4a38);
+            bg.fillRect(cx + 420 + k * 54, fy - 60, 16, 48);
+            bg.fillStyle(0x4a3828);
+        }
+        bg.fillStyle(0xcc3300, 0.32);
+        bg.fillRect(cx + 456, fy - 18, 5, GY - fy + 18); bg.fillRect(cx + 516, fy - 28, 5, GY - fy + 28);
+        bg.fillRect(cx + 576, fy - 28, 5, GY - fy + 28); bg.fillRect(cx + 636, fy - 18, 5, GY - fy + 18);
+
+        // Ground lava fissures
+        bg.fillStyle(0x2a1008);
+        bg.fillRect(startX, GY - 18, ROOM_W, 18);
+        bg.fillStyle(0xff4400, 0.2);
+        for (let x = startX + 80; x < startX + ROOM_W - 80; x += 140) {
+            bg.fillRect(x, GY - 12, 70, 7);
+            bg.fillStyle(0xff8800, 0.13);
+            bg.fillRect(x + 12, GY - 8, 46, 3);
+            bg.fillStyle(0xff4400, 0.2);
+        }
+
+        // Tint ground/platform tiles
+        this.groundGroup.getChildren().forEach(t => {
+            if (t.x >= startX && t.x < startX + ROOM_W) t.setTint(0x2a1e14);
+        });
+        this.platformGroup.getChildren().forEach(t => {
+            if (t.x >= startX && t.x < startX + ROOM_W) t.setTint(0x3e2e20);
+        });
+
+        // Containment walls (invisible)
+        const tileW = 64;
+        const wallL = startX + 32;
+        const wallR = startX + ROOM_W - 32;
+        for (let y = tileW / 2; y < GY + tileW; y += tileW) {
+            for (const wx of [wallL, wallR]) {
+                const w = this.bossWalls.create(wx, y, 'ground_void');
+                w.setImmovable(true);
+                w.setAlpha(0);
+                w.refreshBody();
+            }
+        }
+
+        this._titanBg = bg;
+    }
+
     _stormFlickerLoop(gfx, startX) {
         if (!gfx || !gfx.active) return;
         gfx.clear();
@@ -1273,6 +1421,7 @@ export default class GameScene extends Phaser.Scene {
         if (this._stormAmbientGfx) { this._stormAmbientGfx.destroy(); this._stormAmbientGfx = null; }
         if (this._stormMusic)      { this._stormMusic.stop();          this._stormMusic      = null; }
         if (this._stormRain)       { this._stormRain.destroy();        this._stormRain       = null; }
+        if (this._titanBg)         { this._titanBg.destroy();          this._titanBg         = null; }
         this.viperOrbs.clear(true, true);
         this.blazeFireZones.clear(true, true);
         this.bossOrbs.clear(true, true);
@@ -1318,6 +1467,7 @@ export default class GameScene extends Phaser.Scene {
         this.alive = false;
         this.bossMusic.stop();
         if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
+        if (this._titanBg)    { this._titanBg.destroy();          this._titanBg    = null; }
         this.registry.set('finalFloor', this.floor);
         this.registry.set('finalAgent', this.agentKey);
         this.cameras.main.shake(400, 0.02);
