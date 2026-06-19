@@ -804,9 +804,19 @@ export default class GameScene extends Phaser.Scene {
 
     onSceneResumed() {
         const shopClosed   = this.registry.get('shopClosed');
+        const casinoClosed = this.registry.get('casinoClosed');
         const abilityLevel = this.registry.get('pickedAbilityLevel');
         const upgradeId    = this.registry.get('pickedUpgrade');
         const weaponId     = this.registry.get('pickedWeapon');
+
+        if (casinoClosed) {
+            this.registry.set('casinoClosed', null);
+            this.coins = this.registry.get('coins') ?? this.coins;
+            this.showingUpgrade = false;
+            this.roomDone = true;
+            this.spawnDoor();
+            return;
+        }
 
         if (shopClosed) {
             // Shop closed — apply all queued purchases then open the door
@@ -921,8 +931,8 @@ export default class GameScene extends Phaser.Scene {
 
     // ─── Random Event System ────────────────────────────────────────
     _launchEvent(startX) {
-        const TYPES = ['shop', 'puzzle', 'minigame'];
-        this.eventType = TYPES[Phaser.Math.Between(0, 2)];
+        const TYPES = ['shop', 'puzzle', 'minigame', 'casino'];
+        this.eventType = TYPES[Phaser.Math.Between(0, 3)];
 
         if (this.eventType === 'shop') {
             this._showEventBanner('⬡ SHOP UNLOCKED', 'Spend your coins on upgrades', '#ffd700');
@@ -962,6 +972,14 @@ export default class GameScene extends Phaser.Scene {
             this.time.delayedCall(2200, () => {
                 this.scene.launch('EventScene', { type: 'minigame', restriction: this._eventRestriction, floor: this.floor });
                 this._spawnMinigameWave(startX);
+            });
+
+        } else if (this.eventType === 'casino') {
+            this._showEventBanner("🎰 CAMMY'S CASINO", 'Gamble your coins — spin to win!', '#ffd700');
+            this.time.delayedCall(1800, () => {
+                this.registry.set('casinoClosed', null);
+                this.scene.launch('CasinoScene', { floor: this.floor, coins: this.coins });
+                this.scene.pause();
             });
         }
     }
