@@ -1277,11 +1277,20 @@ export default class BootScene extends Phaser.Scene {
         bti.generateTexture('boss_bullet_titan', 28, 28);
         bti.destroy();
 
-        // STORM bullet (lightning bolt)
+        // Rain drop — thin streak, blue-purple tinted
+        const rdrop = this.make.graphics({ x: 0, y: 0, add: false });
+        rdrop.fillStyle(0xaabbee, 1.0);
+        rdrop.fillRect(0, 0, 1, 8);
+        rdrop.fillStyle(0x6677cc, 1.0);
+        rdrop.fillRect(1, 0, 1, 8);
+        rdrop.generateTexture('raindrop', 2, 8);
+        rdrop.destroy();
+
+        // STORM bullet (purple/blue lightning bolt)
         const bst = this.make.graphics({ x: 0, y: 0, add: false });
-        bst.fillStyle(0xfff176); bst.fillRect(0,3,8,4);
-        bst.fillStyle(0x00e5ff); bst.fillRect(6,0,6,10);
-        bst.fillStyle(0xfff176); bst.fillRect(10,3,8,4);
+        bst.fillStyle(0x5500cc); bst.fillRect(0,3,8,4);
+        bst.fillStyle(0xaa55ff); bst.fillRect(6,0,6,10);
+        bst.fillStyle(0x5500cc); bst.fillRect(10,3,8,4);
         bst.generateTexture('boss_bullet_storm', 18, 10);
         bst.destroy();
 
@@ -1711,12 +1720,14 @@ export default class BootScene extends Phaser.Scene {
         g.destroy();
     }
 
-    // ── STORM — lightning elemental with crackling form ───────────
+    // ── STORM — dark lightning elemental, black/purple/dark-blue palette ──
     _drawBossStorm() {
         const g = this.make.graphics({ x: 0, y: 0, add: false });
-        const body = 0x1a1a00, bodyL = 0x2d2d00;
-        const bolt = 0xffee58, boltL = 0xffffff;
-        const elec = 0x00e5ff;
+        const body  = 0x08000f;  // near-black with purple tint
+        const bodyL = 0x1a0035;  // dark purple shadow
+        const bolt  = 0x9933ff;  // vivid purple lightning streaks
+        const boltL = 0xcc88ff;  // bright lavender glow
+        const elec  = 0x3344dd;  // electric dark blue
 
         // Lightning discharge crown
         g.fillStyle(boltL);
@@ -1732,32 +1743,32 @@ export default class BootScene extends Phaser.Scene {
         g.fillStyle(elec);
         g.fillRect(16, 4,  4,  4);
         g.fillRect(52, 4,  4,  4);
-        // Crackling head
+        // Head
         g.fillStyle(bodyL);
         g.fillRect(14, 4, 52, 26);
         g.fillStyle(body);
         g.fillRect(16, 6, 48, 22);
         // Lightning split lines on head
         g.fillStyle(bolt);
-        g.fillRect(38, 4,  4, 26);    // centre split
-        g.fillRect(22,10, 16,  3);    // L arc
-        g.fillRect(42,10, 16,  3);    // R arc
-        // Crackling electric eyes
+        g.fillRect(38, 4,  4, 26);
+        g.fillRect(22,10, 16,  3);
+        g.fillRect(42,10, 16,  3);
+        // Glowing purple eyes
         g.fillStyle(elec);
         g.fillRect(18,12, 14,  8);
         g.fillRect(48,12, 14,  8);
-        g.fillStyle(0xe0f7fa);
+        g.fillStyle(0x6655cc);
         g.fillRect(20,13, 10,  6);
         g.fillRect(50,13, 10,  6);
         g.fillStyle(boltL);
         g.fillRect(22,14,  6,  4);
         g.fillRect(52,14,  6,  4);
-        // Body (crackling energy form)
+        // Body
         g.fillStyle(bodyL);
         g.fillRect(8, 28, 64, 50);
         g.fillStyle(body);
         g.fillRect(10,30, 60, 46);
-        // Lightning bolt body patterns
+        // Purple lightning bolt body patterns
         g.fillStyle(bolt);
         g.fillRect(20,30,  4, 46);
         g.fillRect(34,28,  4, 48);
@@ -1768,14 +1779,14 @@ export default class BootScene extends Phaser.Scene {
         g.fillRect(35,30,  2, 44);
         g.fillRect(47,30,  2, 44);
         g.fillRect(61,32,  2, 42);
-        // Electric arc connectors
+        // Blue arc connectors
         g.fillStyle(elec);
         g.fillRect(22,38, 12,  3);
         g.fillRect(38,42, 10,  3);
         g.fillRect(24,56, 14,  3);
         g.fillRect(50,38, 10,  3);
         g.fillRect(46,52, 14,  3);
-        // Electric tendril arms
+        // Arms
         g.fillStyle(bodyL);
         g.fillRect(0, 28, 10, 32);
         g.fillRect(70,28, 18, 32);
@@ -1784,23 +1795,23 @@ export default class BootScene extends Phaser.Scene {
         g.fillRect(0, 48,  6,  4);
         g.fillRect(72,34,  6,  4);
         g.fillRect(70,48,  6,  4);
-        // Crackling legs
+        // Legs
         g.fillStyle(bodyL);
         g.fillRect(14,76, 22, 20);
         g.fillRect(44,76, 22, 20);
         g.fillStyle(bolt);
         g.fillRect(16,78,  4, 16);
         g.fillRect(54,78,  4, 16);
-        // Lightning rod weapon
-        g.fillStyle(0x78909c);
-        g.fillRect(76, 8,  6, 50);    // shaft
+        // Lightning rod weapon (dark shaft, purple tip)
+        g.fillStyle(0x1a0044);
+        g.fillRect(76, 8,  6, 50);
         g.fillStyle(bolt);
-        g.fillRect(74, 4, 10,  8);    // tip
+        g.fillRect(74, 4, 10,  8);
         g.fillStyle(boltL);
-        g.fillRect(76, 4,  6,  6);    // tip glow
+        g.fillRect(76, 4,  6,  6);
         g.fillStyle(elec);
-        g.fillRect(72,28, 12,  4);    // grip
-        g.fillStyle(0x546e7a);
+        g.fillRect(72,28, 12,  4);
+        g.fillStyle(0x110022);
         g.fillRect(74,30,  8,  3);
 
         g.generateTexture('boss_storm', 88, 96);

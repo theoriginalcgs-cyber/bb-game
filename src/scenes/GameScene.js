@@ -3,6 +3,7 @@ import Enemy from '../entities/Enemy.js';
 import Boss from '../entities/Boss.js';
 import LevelGenerator from '../utils/LevelGenerator.js';
 import BossMusic from '../utils/BossMusic.js';
+import { StormMusic } from '../audio/StormMusic.js';
 
 const BOSS_TYPES = ['viper', 'blaze', 'phantom', 'titan', 'storm', 'killjoy', 'chamber', 'kayo'];
 const ROOM_W  = 1440;
@@ -72,6 +73,8 @@ export default class GameScene extends Phaser.Scene {
         this.toxicPools    = this.physics.add.staticGroup();
         this.bossWalls     = this.physics.add.staticGroup();
         this.viperOrbs     = this.physics.add.group();
+        this.blazeFireZones = this.physics.add.staticGroup();
+        this.bossOrbs       = this.physics.add.group();
         this.chamberTraps  = this.physics.add.staticGroup();
         this.kayoKnives    = this.physics.add.staticGroup();
 
@@ -229,6 +232,47 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
+        // Blaze fire zones: burn damage (no poison)
+        this.physics.add.overlap(this.player, this.blazeFireZones, () => {
+            const now = this.time.now;
+            if (!this._lastFireDmg || now - this._lastFireDmg > 600) {
+                this._lastFireDmg = now;
+                this.player.takeDamage(10 + Math.floor(this.floor / 10) * 2);
+            }
+        });
+
+        // Boss orbs (Blaze cores, Storm orbs): player bullets damage them
+        this.physics.add.overlap(this.playerBullets, this.bossOrbs, (bullet, orb) => {
+            if (orb.iframeTil && orb.iframeTil > this.time.now) return;
+            bullet.destroy();
+            orb.orbHp = (orb.orbHp || 3) - 1;
+            orb.iframeTil = this.time.now + 500;
+
+            const flash = this.add.circle(orb.x, orb.y, 22, 0xffffff, 0.85);
+            this.tweens.add({ targets: flash, alpha: 0, scaleX: 2.5, scaleY: 2.5, duration: 220, onComplete: () => flash.destroy() });
+
+            if (orb.orbHp <= 0) {
+                if (orb.pulseTween) orb.pulseTween.stop();
+                const boom = this.add.circle(orb.x, orb.y, 16, 0xffffff, 0.9);
+                this.tweens.add({ targets: boom, alpha: 0, scaleX: 3.5, scaleY: 3.5, duration: 300, onComplete: () => boom.destroy() });
+                if (orb.bossRef && orb.bossRef.active) {
+                    orb.bossRef.ultOrbsLeft     = Math.max(0, (orb.bossRef.ultOrbsLeft     || 1) - 1);
+                    orb.bossRef.stormUltOrbsLeft = Math.max(0, (orb.bossRef.stormUltOrbsLeft || 1) - 1);
+                }
+                // Storm orbs reward the player with 15% max HP on destroy
+                if (orb.orbType === 'storm_orb' && this.player && this.player.active) {
+                    const heal = Math.floor(this.player.maxHp * 0.15);
+                    this.player.gainHp(heal);
+                    const healTxt = this.add.text(orb.x, orb.y - 20, `+${heal} HP`, {
+                        fontSize: '16px', fontFamily: 'Arial Black, Arial',
+                        color: '#88ffcc', stroke: '#000000', strokeThickness: 3,
+                    }).setOrigin(0.5).setDepth(10);
+                    this.tweens.add({ targets: healTxt, y: orb.y - 70, alpha: 0, duration: 900, onComplete: () => healTxt.destroy() });
+                }
+                orb.destroy();
+            }
+        });
+
         this.physics.add.overlap(this.playerBullets, this.viperOrbs, (bullet, orb) => {
             // 600ms invincibility window after each hit — caps attack-speed advantage
             if (orb.iframeTil && orb.iframeTil > this.time.now) return;
@@ -299,7 +343,10 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('enemyDied',           this.onEnemyDied,           this);
         this.events.on('dashDamage',          this.onDashDamage,          this);
         this.events.on('spawnIceOrb',         this.onSpawnIceOrb,         this);
-        this.events.on('bossKilled',          () => this.bossMusic.stop(), this);
+        this.events.on('bossKilled',          () => {
+            this.bossMusic.stop();
+            if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
+        }, this);
         this.events.on('lifeStealKill',       (amt) => this.player.gainHp(amt), this);
         this.events.on('hpChanged',           (hp)  => this.registry.set('playerHp', hp), this);
         this.events.on('playerDied',          this.onPlayerDied,          this);
@@ -368,6 +415,7 @@ export default class GameScene extends Phaser.Scene {
                 this, this.groundGroup, this.platformGroup, roomIndex, startX, this.currentBossType
             );
             if (this.currentBossType === 'viper') this._spawnViperArena(startX);
+            if (this.currentBossType === 'storm') this._spawnStormArena(startX);
             this.spawnBoss(startX + ROOM_W / 2, 400);
 
         } else if (isMiniBoss) {
@@ -464,9 +512,10 @@ export default class GameScene extends Phaser.Scene {
         const type = this.currentBossType || 'viper';
         const boss = new Boss(this, x, y, this.floor, type);
         this.enemyGroup.add(boss);
+        boss.setDepth(2); // above bgtile (0) so clouds/effects at depth 1 show correctly
         this.enemyCount = 1;
 
-        this.bossMusic.play(type);
+        if (type !== 'storm') this.bossMusic.play(type);
 
         const colors = { viper:'#cc44ff', blaze:'#ff6600', phantom:'#00e5ff', titan:'#cc8833', storm:'#ffff00', killjoy:'#ffee00', chamber:'#ffe082', kayo:'#80deea' };
         const col = colors[type] || '#ff0000';
@@ -708,15 +757,24 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _ricochetOrDestroy(bullet) {
-        if (this.player.upgrades.includes('ricochet') && !bullet.bounced &&
-            (bullet.body.blocked.left || bullet.body.blocked.right)) {
-            bullet.bounced = true;
-            bullet.origVx  = -bullet.origVx;
-            bullet.setVelocity(bullet.origVx, bullet.origVy);
-            bullet.setRotation(Math.atan2(bullet.origVy, bullet.origVx));
-        } else {
-            bullet.destroy();
+        if (this.player.upgrades.includes('ricochet') && !bullet.bounced) {
+            const b = bullet.body;
+            if (b.blocked.left || b.blocked.right) {
+                bullet.bounced = true;
+                bullet.origVx  = -bullet.origVx;
+                bullet.setVelocity(bullet.origVx, bullet.origVy);
+                bullet.setRotation(Math.atan2(bullet.origVy, bullet.origVx));
+                return;
+            }
+            if (b.blocked.up) {
+                bullet.bounced = true;
+                bullet.origVy  = -Math.abs(bullet.origVy) + 60;
+                bullet.setVelocity(bullet.origVx, bullet.origVy);
+                bullet.setRotation(Math.atan2(bullet.origVy, bullet.origVx));
+                return;
+            }
         }
+        bullet.destroy();
     }
 
     onDropHealth(x, y) {
@@ -964,6 +1022,101 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    _spawnStormArena(startX) {
+        const tileW  = 64;
+        const wallL  = startX + 32;
+        const wallR  = startX + ROOM_W - 32;
+        const CEIL_Y = 24;
+
+        // ── Dark storm sky background ──
+        const bg = this.add.rectangle(
+            startX + ROOM_W / 2, this.scale.height / 2,
+            ROOM_W, this.scale.height, 0x050510
+        ).setDepth(-3);
+        this._stormBg = bg;
+
+        // ── Tint existing ground/platform tiles to storm color ──
+        this.groundGroup.getChildren().forEach(tile => {
+            if (tile.x >= startX && tile.x < startX + ROOM_W) tile.setTint(0x1a1a3a);
+        });
+        this.platformGroup.getChildren().forEach(tile => {
+            if (tile.x >= startX && tile.x < startX + ROOM_W) tile.setTint(0x2244aa);
+        });
+
+        // ── Left & right containment walls ──
+        for (let y = tileW / 2; y < GROUND_Y + tileW; y += tileW) {
+            for (const wx of [wallL, wallR]) {
+                const w = this.bossWalls.create(wx, y, 'ground_void');
+                w.setImmovable(true);
+                w.setTint(0x2255ff);
+                w.setAlpha(0.85);
+                w.refreshBody();
+            }
+        }
+
+        // ── Invisible ceiling (for bullet bounce) ──
+        for (let x = wallL; x <= wallR; x += tileW) {
+            const c = this.bossWalls.create(x, CEIL_Y, 'ground_void');
+            c.setImmovable(true);
+            c.setAlpha(0);
+            c.refreshBody();
+        }
+
+        // ── Visual ceiling border — thin blue line ──
+        const ceilGfx = this.add.graphics().setDepth(-1);
+        ceilGfx.fillStyle(0x4477ff, 0.65);
+        ceilGfx.fillRect(wallL - 16, 0, ROOM_W - 32, 6);
+        this._stormCeilGfx = ceilGfx;
+
+        // ── Ambient lightning flicker ──
+        const ambientGfx = this.add.graphics().setDepth(-2);
+        this._stormAmbientGfx = ambientGfx;
+        this._stormFlickerLoop(ambientGfx, startX);
+
+        // ── Rain particles ──
+        if (this._stormRain) { this._stormRain.destroy(); this._stormRain = null; }
+        this._stormRain = this.add.particles(0, -20, 'raindrop', {
+            x:        { min: startX, max: startX + ROOM_W },
+            y:        0,
+            speedX:   { min: -55, max: -20 },
+            speedY:   { min: 420, max: 680 },
+            lifespan: { min: 1100, max: 1800 },
+            alpha:    { min: 0.20, max: 0.55 },
+            scale:    { min: 0.7,  max: 1.4  },
+            quantity: 4,
+            frequency: 18,
+            gravityY:  0,
+            rotate:    { min: -8, max: 8 },
+        }).setDepth(5);
+
+        // ── Storm boss music ──
+        if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
+        this._stormMusic = new StormMusic();
+        this._stormMusic.start();
+    }
+
+    _stormFlickerLoop(gfx, startX) {
+        if (!gfx || !gfx.active) return;
+        gfx.clear();
+        // Draw 2-3 faint jagged lightning streaks in the background
+        const count = Phaser.Math.Between(1, 3);
+        for (let i = 0; i < count; i++) {
+            const lx  = startX + Phaser.Math.Between(100, ROOM_W - 100);
+            let   ly  = 0;
+            gfx.lineStyle(1.5, 0x4466ff, 0.3);
+            gfx.beginPath();
+            gfx.moveTo(lx, ly);
+            while (ly < GROUND_Y) {
+                ly += Phaser.Math.Between(30, 80);
+                const jitter = Phaser.Math.Between(-60, 60);
+                gfx.lineTo(lx + jitter, ly);
+            }
+            gfx.strokePath();
+        }
+        const delay = Phaser.Math.Between(1200, 3500);
+        this.time.delayedCall(delay, () => this._stormFlickerLoop(gfx, startX));
+    }
+
     // ─── Random Event System ────────────────────────────────────────
     _launchEvent(startX) {
         const TYPES = ['shop', 'puzzle', 'minigame', 'casino'];
@@ -1115,7 +1268,14 @@ export default class GameScene extends Phaser.Scene {
 
         this.toxicPools.clear(true, true);
         this.bossWalls.clear(true, true);
+        if (this._stormBg)         { this._stormBg.destroy();         this._stormBg         = null; }
+        if (this._stormCeilGfx)    { this._stormCeilGfx.destroy();    this._stormCeilGfx    = null; }
+        if (this._stormAmbientGfx) { this._stormAmbientGfx.destroy(); this._stormAmbientGfx = null; }
+        if (this._stormMusic)      { this._stormMusic.stop();          this._stormMusic      = null; }
+        if (this._stormRain)       { this._stormRain.destroy();        this._stormRain       = null; }
         this.viperOrbs.clear(true, true);
+        this.blazeFireZones.clear(true, true);
+        this.bossOrbs.clear(true, true);
         this.chamberTraps.clear(true, true);
         this.kayoKnives.clear(true, true);
         this.kayoSuppressed    = false;
@@ -1157,6 +1317,7 @@ export default class GameScene extends Phaser.Scene {
         if (!this.alive) return;
         this.alive = false;
         this.bossMusic.stop();
+        if (this._stormMusic) { this._stormMusic.stop(); this._stormMusic = null; }
         this.registry.set('finalFloor', this.floor);
         this.registry.set('finalAgent', this.agentKey);
         this.cameras.main.shake(400, 0.02);

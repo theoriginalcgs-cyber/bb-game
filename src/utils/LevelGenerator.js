@@ -215,7 +215,9 @@ export default class LevelGenerator {
         const roomEndX = startX + ROOM_W;
         const tileW    = 64;
 
-        const groundKey = bossType === 'viper' ? 'ground_viper' : 'ground';
+        const groundKey = bossType === 'viper' ? 'ground_viper'
+                        : bossType === 'storm'  ? 'ground_void'
+                        : 'ground';
         for (let x = startX; x < roomEndX + tileW; x += tileW) {
             const t1 = groundGroup.create(x + tileW / 2, GROUND_Y + 16, groundKey);
             t1.setImmovable(true); t1.refreshBody();
@@ -260,13 +262,13 @@ export default class LevelGenerator {
                 P(startX + ROOM_W - 228, GROUND_Y - 490, 2);
                 break;
             case 'storm':
-                P(startX + 120,          GROUND_Y - 160, 2);
-                P(startX + 300,          GROUND_Y - 310, 2);
-                P(startX + 480,          GROUND_Y - 460, 2);
-                P(cx - 64,               GROUND_Y - 260, 3);
-                P(cx + 96,               GROUND_Y - 430, 2);
-                P(startX + ROOM_W - 428, GROUND_Y - 310, 2);
-                P(startX + ROOM_W - 248, GROUND_Y - 160, 2);
+                // Wide jump pads for the player — Storm flies freely above
+                P(startX + 80,           GROUND_Y - 180, 3);
+                P(startX + 360,          GROUND_Y - 320, 3);
+                P(cx - 96,               GROUND_Y - 220, 4);
+                P(cx + 160,              GROUND_Y - 370, 3);
+                P(startX + ROOM_W - 380, GROUND_Y - 240, 3);
+                P(startX + ROOM_W - 140, GROUND_Y - 150, 2);
                 break;
 
             case 'killjoy':

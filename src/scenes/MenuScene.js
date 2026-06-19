@@ -138,8 +138,46 @@ export default class MenuScene extends Phaser.Scene {
         testBtn.on('pointerout',  () => testBtn.setColor('#886600'));
         testBtn.on('pointerdown', () => this.startCasinoTest());
 
+        // Boss test dropdown
+        this._bossDropOpen = false;
+        const bossToggle = this.add.text(W / 2, 716, '[ TEST BOSS ▾ ]', {
+            fontSize: '11px', fontFamily: 'Arial', color: '#555588', letterSpacing: 1,
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        bossToggle.on('pointerover', () => bossToggle.setColor('#8888ff'));
+        bossToggle.on('pointerout',  () => bossToggle.setColor(this._bossDropOpen ? '#8888ff' : '#555588'));
+
+        const bossList   = ['viper','blaze','phantom','titan','storm','killjoy','chamber','kayo'];
+        const bossLabels = ['VIPER','BLAZE','PHANTOM','TITAN','STORM','KILLJOY','CHAMBER','KAY/O'];
+        const dropItems  = [];
+        // Drop opens UPWARD from the toggle button so nothing goes off screen
+        const rowH       = 20;
+        const listH      = bossLabels.length * rowH + 8;
+        const dropBg     = this.add.rectangle(W / 2, 716 - listH / 2 - 4, 160, listH, 0x111122, 0.94)
+            .setVisible(false).setDepth(10);
+
+        bossLabels.forEach((label, i) => {
+            // i=0 nearest toggle, increasing upward
+            const itemY = 716 - 12 - i * rowH;
+            const item = this.add.text(W / 2, itemY, label, {
+                fontSize: '11px', fontFamily: 'Arial', color: '#8888cc', letterSpacing: 1,
+            }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setVisible(false).setDepth(11);
+            item.on('pointerover', () => item.setColor('#ffffff'));
+            item.on('pointerout',  () => item.setColor('#8888cc'));
+            item.on('pointerdown', () => this.startBossTest(bossList[i]));
+            dropItems.push(item);
+        });
+
+        const toggleDrop = () => {
+            this._bossDropOpen = !this._bossDropOpen;
+            bossToggle.setText(this._bossDropOpen ? '[ TEST BOSS ▾ ]' : '[ TEST BOSS ▴ ]');
+            bossToggle.setColor(this._bossDropOpen ? '#8888ff' : '#555588');
+            dropBg.setVisible(this._bossDropOpen);
+            dropItems.forEach(it => it.setVisible(this._bossDropOpen));
+        };
+        bossToggle.on('pointerdown', toggleDrop);
+
         // Controls hint
-        this.add.text(W / 2, 724, 'WASD/ARROWS: Move   SPACE: Jump   Z/CLICK: Shoot   E/SHIFT: Ability', {
+        this.add.text(W / 2, 732, 'WASD/ARROWS: Move   SPACE: Jump   Z/CLICK: Shoot   E/SHIFT: Ability', {
             fontSize: '11px', fontFamily: 'Arial', color: '#444444',
         }).setOrigin(0.5);
 
@@ -202,5 +240,13 @@ export default class MenuScene extends Phaser.Scene {
     startCasinoTest() {
         this.registry.set('coins', 500);
         this.scene.launch('CasinoScene', { floor: 1, coins: 500 });
+    }
+
+    startBossTest(bossType) {
+        this.registry.set('selectedAgent', this.agents[this.selectedIndex].key);
+        this.registry.set('floor', 10);
+        this.registry.set('coins', 200);
+        this.registry.set('forceBossType', bossType);
+        this.scene.start('GameScene');
     }
 }
