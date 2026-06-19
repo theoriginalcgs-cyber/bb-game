@@ -547,7 +547,12 @@ export default class CasinoScene extends Phaser.Scene {
     // ── Close ──────────────────────────────────────────────────────────
     _close() {
         this.registry.set('casinoClosed', true);
-        this.scene.resume('GameScene');
+        if (this.scene.isActive('GameScene') || this.scene.isPaused('GameScene')) {
+            this.scene.resume('GameScene');
+        } else {
+            // Launched directly from menu (test mode) — go back to menu
+            this.scene.start('MenuScene');
+        }
         this.scene.stop();
     }
 }
