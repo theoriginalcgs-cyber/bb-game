@@ -122,7 +122,8 @@ export default class LevelGenerator {
                 const heightAbove = 120 + lv * Phaser.Math.Between(110, 145);
                 if (heightAbove > cfg.maxH) break;
                 const y = groundY - heightAbove;
-                const x = colX + offset - (cols * tileW) / 2;
+                const rawX = colX + offset - (cols * tileW) / 2;
+                const x = Math.max(startX + 40, Math.min(rawX, endX - cols * tileW - 40));
                 platforms.push({ x, y, cols });
             }
         }
@@ -156,7 +157,8 @@ export default class LevelGenerator {
             const cols  = Phaser.Math.Between(cfg.colMin, cfg.colMax);
             const platW = cols * tileW;
             const zoneX = startX + 100 + i * stepX;
-            const x     = zoneX + Phaser.Math.Between(0, Math.max(0, stepX - platW - 20));
+            const maxOff = Math.max(0, stepX - platW - 20);
+            const x     = Math.min(zoneX + Phaser.Math.Between(0, maxOff), endX - platW - 40);
             const y     = groundY - heightAbove;
 
             platforms.push({ x, y, cols });

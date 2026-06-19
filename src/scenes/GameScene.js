@@ -239,8 +239,12 @@ export default class GameScene extends Phaser.Scene {
             this.player.applyPowerup(type);
         });
 
-        this.physics.add.overlap(this.player, this.doorGroup, () => {
-            if (this.roomDone && !this.showingUpgrade) this.openUpgradeScreen();
+        this.physics.add.overlap(this.player, this.doorGroup, (player, door) => {
+            if (door.used) return;
+            if (this.roomDone && !this.showingUpgrade) {
+                door.used = true;
+                this.openUpgradeScreen();
+            }
         });
 
         this.events.on('resume',              this.onSceneResumed,        this);
@@ -369,6 +373,10 @@ export default class GameScene extends Phaser.Scene {
         const newW = (roomIndex + 1) * ROOM_W;
         this.physics.world.setBounds(0, 0, newW, this.scale.height);
         this.cameras.main.setBounds(startX, 0, ROOM_W, this.scale.height);
+
+        // Invisible left wall so player can't walk off the left edge
+        const leftWall = this.groundGroup.create(startX - 16, this.scale.height / 2, null);
+        leftWall.setVisible(false).setSize(32, this.scale.height).setImmovable(true).refreshBody();
 
         // Zone transition announcement
         const zone     = Math.floor((this.floor - 1) / 10);
@@ -818,8 +826,8 @@ export default class GameScene extends Phaser.Scene {
             this.advanceRoom();
 
         } else {
+            // No registry key — spurious resume, just unblock the flag
             this.showingUpgrade = false;
-            this.advanceRoom();
         }
     }
 

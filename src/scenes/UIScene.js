@@ -124,7 +124,7 @@ export default class UIScene extends Phaser.Scene {
         this.enemyTxt.setColor(done ? '#44ff44' : '#cccccc');
 
         // Coins
-        this.coinTxt.setText(`⬡ ${coins}`).setVisible(coins > 0);
+        if (this.coinTxt) this.coinTxt.setText(`⬡ ${coins}`).setVisible(coins > 0);
 
         // Status
         this.statusTxt.setText(done ? '▶ REACH THE EXIT DOOR' : '');

@@ -49,7 +49,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.attackCd    = Phaser.Math.Between(0, Math.min(s.attackCd, 1500));
         this.slowed      = false;
         this.slowTimer   = 0;
-        this.jumpCd      = 0;
+        this.jumpCd      = Phaser.Math.Between(600, 3000); // stagger so all enemies don't jump on frame 1
 
         // Modifiers (applied externally by GameScene for curses etc.)
         this.armorMod       = 1;     // < 1 means takes less damage
