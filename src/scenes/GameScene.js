@@ -44,6 +44,9 @@ export default class GameScene extends Phaser.Scene {
         this._puzzleDoorReady  = false;
         this.registry.set('coins', 0);
 
+        // Run stats
+        this._stats = { kills: 0, damageDealt: 0, bossesKilled: 0, coinsEarned: 0, startTime: Date.now() };
+
         // Curse state
         this.activeCurse  = null;
         this._curseSave   = {};
@@ -99,6 +102,17 @@ export default class GameScene extends Phaser.Scene {
         this.generateRoom(0);
 
         this.player = new Player(this, 120, 400, this.agentKey);
+        this._applyRunModifier();
+        if (this._runModifierId) {
+            this.time.delayedCall(800, () => {
+                const NAMES = {
+                    blessed_start: 'BLESSED START', loaded: 'LOADED', iron_skin: 'IRON SKIN',
+                    quick_hands: 'QUICK HANDS', fragile: 'FRAGILE', drought: 'DROUGHT',
+                    glass_cannon: 'GLASS CANNON', speedrunner: 'SPEEDRUNNER', punching_bags: 'PUNCHING BAGS',
+                };
+                this._showEventBanner(`⚡ MODIFIER: ${NAMES[this._runModifierId] || this._runModifierId}`, 'Active for this entire run', '#cc44ff');
+            });
+        }
 
         this.cursors  = this.input.keyboard.createCursorKeys();
         this.wasd = {
@@ -139,10 +153,16 @@ export default class GameScene extends Phaser.Scene {
             const ls       = bullet.isLifeSteal;
             const isIce    = bullet.isIceOrb;
             const piercing = bullet.piercing;
+            const isFireball = bullet.isFireball;
             let   dmg      = bullet.damage || 20;
 
             if (!piercing) bullet.destroy();
             else bullet.piercedCount = (bullet.piercedCount || 0) + 1;
+
+            // Fireball: apply burn DOT
+            if (isFireball && enemy.active) {
+                enemy.applyBurnEffect(15, 3000);
+            }
 
             // Deathmark: 4× damage on next hit after a kill
             if (this.player.deathmark && this.player.deathmarkReady) {
@@ -164,6 +184,7 @@ export default class GameScene extends Phaser.Scene {
             }
 
             enemy.hit(dmg, ls);
+            this._stats.damageDealt += dmg;
             enemy.armorMod = origArmor;
             if (isIce) enemy.applySlowEffect(3000);
 
@@ -176,8 +197,9 @@ export default class GameScene extends Phaser.Scene {
             // Leech Shot upgrade: heal 1 HP per bullet hit
             if (bullet.isLeechShot && this.player.active) this.player.gainHp(1);
 
-            // Phoenix Tier-1 weapon: Hot Rounds — small fire zone on hit
+            // Phoenix Tier-1 weapon: Hot Rounds — small fire zone on hit + burn
             if (bullet.isHotRound && enemy.active) {
+                enemy.applyBurnEffect(12, 2500);
                 const fx = this.add.circle(enemy.x, enemy.y, 18, 0xff5722, 0.65);
                 this.time.delayedCall(600, () => { if (fx?.active) fx.destroy(); });
                 // Brief burn to nearby enemies
@@ -185,6 +207,7 @@ export default class GameScene extends Phaser.Scene {
                     if (!e.active || e === enemy) return;
                     if (Phaser.Math.Distance.Between(e.x, e.y, enemy.x, enemy.y) < 52) {
                         e.hit(Math.round(dmg * 0.4), false);
+                        e.applyBurnEffect(10, 2000);
                     }
                 });
             }
@@ -357,6 +380,7 @@ export default class GameScene extends Phaser.Scene {
         this.events.on('dashDamage',          this.onDashDamage,          this);
         this.events.on('spawnIceOrb',         this.onSpawnIceOrb,         this);
         this.events.on('bossKilled',          () => {
+            this._stats.bossesKilled++;
             this.bossMusic.stop();
             if (this._stormMusic)   { this._stormMusic.stop();   this._stormMusic   = null; }
             if (this._titanMusic)   { this._titanMusic.stop();   this._titanMusic   = null; }
@@ -467,6 +491,7 @@ export default class GameScene extends Phaser.Scene {
                     if (this.activeCurse === 'frenzy')    e.moveSpeed = Math.round(e.moveSpeed * 1.25);
                     if (this.activeCurse === 'fortified') e.armorMod  = 0.8;
                     if (this.player?.temporalField)       e.moveSpeed = Math.round(e.moveSpeed * 0.85);
+                    if (this._modifierEnemyHpMult)        { e.maxHp = Math.round(e.maxHp * this._modifierEnemyHpMult); e.hp = e.maxHp; }
                     this.enemyGroup.add(e);
                     this.enemyCount++;
                 });
@@ -475,7 +500,8 @@ export default class GameScene extends Phaser.Scene {
                 if (this.player) this._applyCurse(this.activeCurse);
 
                 // Start void timer (delay decreases with floor, void speeds up)
-                const delay = Math.max(18000, 35000 - this.floor * 300);
+                const voidMult = this._modifierVoidMult || 1;
+                const delay = Math.round(Math.max(12000, (35000 - this.floor * 300) * voidMult));
                 this._voidTimer = this.time.delayedCall(delay, () => {
                     if (!this.roomDone) {
                         this.voidActive = true;
@@ -989,7 +1015,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     onDropHealth(x, y) {
-        if (this.activeCurse === 'drought') return; // curse blocks drops
+        if (this.activeCurse === 'drought') return;
+        if (this._modifierNoDrop) return; // drought modifier
         const drop = this.healthDrops.create(x, y - 10, 'health_drop');
         if (!drop) return;
         drop.setImmovable(true);
@@ -1000,8 +1027,11 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
-        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.max(8, Math.ceil(this.floor / 2));
+        this._stats.kills++;
+        const coinMult = this._modifierCoinMult || 1;
+        const coinAmt = coinMult * (this.player.goldMagnet ? 2 : 1) * Math.max(8, Math.ceil(this.floor / 2));
         this.coins += coinAmt;
+        this._stats.coinsEarned += coinAmt;
         this.registry.set('coins', this.coins);
         if (this.player.deathmark) this.player.deathmarkReady = true;
         this._checkRoomClear();
@@ -2020,6 +2050,11 @@ export default class GameScene extends Phaser.Scene {
         this.floor++;
         this.registry.set('floor', this.floor);
 
+        // Fragile modifier: bonus upgrade every 5 floors
+        if (this._modifierExtraUpgradeFloor && this.floor % this._modifierExtraUpgradeFloor === 0) {
+            this._pendingUpgrades = (this._pendingUpgrades || 0) + 1;
+        }
+
         this.toxicPools.clear(true, true);
         this.bossWalls.clear(true, true);
         if (this._stormBg)         { this._stormBg.destroy();         this._stormBg         = null; }
@@ -2096,6 +2131,8 @@ export default class GameScene extends Phaser.Scene {
         if (this._phantomBg)    { this._phantomBg.destroy(); this._phantomBg    = null; }
         this.registry.set('finalFloor', this.floor);
         this.registry.set('finalAgent', this.agentKey);
+        this._stats.runTime = Math.floor((Date.now() - this._stats.startTime) / 1000);
+        this.registry.set('runStats', { ...this._stats });
         this.cameras.main.shake(400, 0.02);
         this.time.delayedCall(900, () => {
             this.scene.stop('UIScene');
@@ -2210,6 +2247,63 @@ export default class GameScene extends Phaser.Scene {
                     });
                 }
             }
+        }
+    }
+
+    // ─── Run Modifier ────────────────────────────────────────────────────────
+    _applyRunModifier() {
+        const id = this.registry.get('runModifier');
+        if (!id) return;
+        this._runModifierId = id;
+
+        const p = this.player;
+        switch (id) {
+            case 'blessed_start': {
+                const POOL = ['damage','max_hp','atk_speed','life_steal','shield','ricochet'];
+                p.applyUpgrade(POOL[Phaser.Math.Between(0, POOL.length - 1)]);
+                this.registry.set('playerMaxHp', p.maxHp);
+                this.registry.set('playerHp', p.hp);
+                break;
+            }
+            case 'loaded':
+                this.coins += 400;
+                this.registry.set('coins', this.coins);
+                break;
+            case 'iron_skin':
+                p.maxHp += 30;
+                p.hp = Math.min(p.hp + 30, p.maxHp);
+                this.registry.set('playerMaxHp', p.maxHp);
+                this.registry.set('playerHp', p.hp);
+                break;
+            case 'quick_hands':
+                p.attackCdMax = Math.round(p.attackCdMax * 0.85);
+                break;
+            case 'fragile':
+                p.maxHp = Math.max(30, p.maxHp - 20);
+                p.hp    = Math.min(p.hp, p.maxHp);
+                this.registry.set('playerMaxHp', p.maxHp);
+                this.registry.set('playerHp', p.hp);
+                this._modifierExtraUpgradeFloor = 5;
+                break;
+            case 'drought':
+                this._modifierNoDrop = true;
+                this._modifierCoinMult = 2;
+                break;
+            case 'glass_cannon':
+                p.maxHp = Math.max(30, p.maxHp - 40);
+                p.hp    = Math.min(p.hp, p.maxHp);
+                this.registry.set('playerMaxHp', p.maxHp);
+                this.registry.set('playerHp', p.hp);
+                p.damageMultiplier = (p.damageMultiplier || 1) * 1.5;
+                break;
+            case 'speedrunner':
+                this._modifierVoidMult = 0.7;
+                this._modifierCoinMult = 2;
+                break;
+            case 'punching_bags':
+                this._modifierEnemyHpMult = 1.5;
+                p.damageMultiplier = (p.damageMultiplier || 1) * 1.25;
+                break;
         }
     }
 

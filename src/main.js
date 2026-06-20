@@ -9,6 +9,7 @@ import WeaponUpgradeScene from './scenes/WeaponUpgradeScene.js';
 import ShopScene from './scenes/ShopScene.js';
 import EventScene from './scenes/EventScene.js';
 import CasinoScene from './scenes/CasinoScene.js';
+import RunModifierScene from './scenes/RunModifierScene.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -22,7 +23,7 @@ const config = {
             debug: false,
         },
     },
-    scene: [BootScene, MenuScene, GameScene, UIScene, GameOverScene, UpgradeScene, AbilityUpgradeScene, WeaponUpgradeScene, ShopScene, EventScene, CasinoScene],
+    scene: [BootScene, MenuScene, GameScene, UIScene, GameOverScene, UpgradeScene, AbilityUpgradeScene, WeaponUpgradeScene, ShopScene, EventScene, CasinoScene, RunModifierScene],
 };
 
 new Phaser.Game(config);

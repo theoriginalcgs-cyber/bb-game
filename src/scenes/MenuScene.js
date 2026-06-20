@@ -234,7 +234,8 @@ export default class MenuScene extends Phaser.Scene {
     startGame() {
         this.registry.set('selectedAgent', this.agents[this.selectedIndex].key);
         this.registry.set('floor', 1);
-        this.scene.start('GameScene');
+        this.registry.set('runModifier', null);
+        this.scene.start('RunModifierScene');
     }
 
     startCasinoTest() {

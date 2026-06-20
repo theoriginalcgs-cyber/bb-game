@@ -78,8 +78,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.goldMagnet      = false;
         this.armorPierce     = 0;
         this.temporalField   = false;
-        this.deathmark       = false;
-        this.deathmarkReady  = false;
+        this.deathmark         = false;
+        this.deathmarkReady    = false;
+        this.damageMultiplier  = 1;
 
         // Weapon upgrade state
         this.weaponLevel        = 0;
@@ -274,6 +275,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Reyna Tier-2: during Devour, +40% damage
         if (this.agentKey === 'reyna' && this.weaponLevel >= 2 && this.lifeSteal) {
             finalDmg = Math.round(dmg * 1.4);
+        }
+
+        // Run modifier damage multiplier (glass cannon / punching bags)
+        if (this.damageMultiplier && this.damageMultiplier !== 1) {
+            finalDmg = Math.round(finalDmg * this.damageMultiplier);
         }
 
         // Berserker: +25% damage below 30% HP
@@ -640,29 +646,66 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     applyPowerup(type) {
+        const DURATIONS = { powerup_firerate: 8000, powerup_invincible: 5000, powerup_jumps: 10000 };
+        const dur = DURATIONS[type] || 5000;
+        const startTime = Date.now();
+
+        const pushPowerup = () => {
+            const existing = (this.scene.registry.get('activePowerups') || []).filter(p => p.type !== type);
+            existing.push({ type, remaining: dur, pct: 1 });
+            this.scene.registry.set('activePowerups', existing);
+        };
+
+        const tickPowerup = () => {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, dur - elapsed);
+            const list = (this.scene.registry.get('activePowerups') || []);
+            const idx = list.findIndex(p => p.type === type);
+            if (idx >= 0) {
+                list[idx].remaining = remaining;
+                list[idx].pct = remaining / dur;
+                this.scene.registry.set('activePowerups', [...list]);
+            }
+        };
+
+        const removePowerup = () => {
+            const list = (this.scene.registry.get('activePowerups') || []).filter(p => p.type !== type);
+            this.scene.registry.set('activePowerups', list);
+        };
+
+        pushPowerup();
+        const ticker = this.scene.time.addEvent({ delay: 200, loop: true, callback: tickPowerup });
+
         switch (type) {
             case 'powerup_firerate': {
                 const prev = this.attackCdMax;
                 this.attackCdMax = Math.max(60, Math.round(this.attackCdMax * 0.4));
                 this.floatText('RAPID FIRE!', '#ffee00');
-                this.scene.time.delayedCall(8000, () => { if (this.active) this.attackCdMax = prev; });
+                this.scene.time.delayedCall(dur, () => {
+                    if (this.active) this.attackCdMax = prev;
+                    ticker.destroy(); removePowerup();
+                });
                 break;
             }
             case 'powerup_invincible':
                 this._powerupInvincible = true;
                 this.setTint(0x4488ff);
                 this.floatText('INVINCIBLE!', '#4488ff');
-                this.scene.time.delayedCall(5000, () => {
+                this.scene.time.delayedCall(dur, () => {
                     if (this.active) {
                         this._powerupInvincible = false;
                         if (!this.invincible) this.clearTint();
                     }
+                    ticker.destroy(); removePowerup();
                 });
                 break;
             case 'powerup_jumps':
                 this._unlimitedJumps = true;
                 this.floatText('∞ JUMPS!', '#44ff88');
-                this.scene.time.delayedCall(10000, () => { if (this.active) this._unlimitedJumps = false; });
+                this.scene.time.delayedCall(dur, () => {
+                    if (this.active) this._unlimitedJumps = false;
+                    ticker.destroy(); removePowerup();
+                });
                 break;
         }
     }

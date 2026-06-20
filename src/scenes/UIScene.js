@@ -90,6 +90,10 @@ export default class UIScene extends Phaser.Scene {
             this.tweens.add({ targets: this.controlHint, alpha: 0, duration: 1200 });
         });
 
+        // Active powerup icons (bottom-left)
+        this._powerupIcons = [];
+        this._powerupContainer = this.add.container(16, 640);
+
         this.registry.events.on('changedata', this.refresh, this);
         this.events.once('shutdown', () => {
             this.registry.events.off('changedata', this.refresh, this);
@@ -207,5 +211,25 @@ export default class UIScene extends Phaser.Scene {
             this.minibossLabel.setText(mbName);
             this.minibossHpTxt.setText(`${Math.ceil(mbHp)} / ${mbMaxHp}`);
         }
+
+        // Active powerup indicators
+        const powerups = this.registry.get('activePowerups') || [];
+        this._powerupContainer.removeAll(true);
+        this._powerupIcons = [];
+        const PINFO = {
+            powerup_firerate:   { label: 'RAPID FIRE', color: 0xffee00 },
+            powerup_invincible: { label: 'INVINCIBLE', color: 0x4488ff },
+            powerup_jumps:      { label: '∞ JUMPS',    color: 0x44ff88 },
+        };
+        powerups.forEach((p, i) => {
+            const info = PINFO[p.type] || { label: p.type, color: 0xffffff };
+            const y = -i * 28;
+            const bg = this.add.rectangle(56, y, 110, 22, info.color, 0.22).setOrigin(0.5);
+            const bar = this.add.rectangle(2, y, Math.max(0, 110 * p.pct), 22, info.color, 0.55).setOrigin(0, 0.5);
+            const txt = this.add.text(56, y, `${info.label}  ${Math.ceil(p.remaining / 1000)}s`, {
+                fontSize: '10px', color: '#ffffff', fontFamily: 'Arial',
+            }).setOrigin(0.5);
+            this._powerupContainer.add([bg, bar, txt]);
+        });
     }
 }

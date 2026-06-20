@@ -49,6 +49,10 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.attackCd    = Phaser.Math.Between(0, Math.min(s.attackCd, 1500));
         this.slowed      = false;
         this.slowTimer   = 0;
+        this.isBurning   = false;
+        this.burnTimer   = 0;
+        this.burnTickCd  = 0;
+        this.burnDps     = 0;
         this.jumpCd      = Phaser.Math.Between(600, 3000); // stagger so all enemies don't jump on frame 1
 
         // Modifiers (applied externally by GameScene for curses etc.)
@@ -168,6 +172,27 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             }
         }
 
+        if (this.isBurning) {
+            this.burnTimer  -= delta;
+            this.burnTickCd -= delta;
+            if (this.burnTickCd <= 0) {
+                this.burnTickCd = 500;
+                const tick = Math.round(this.burnDps * 0.5);
+                this.hit(tick, false);
+                // Small orange flash
+                const gfx = this.scene.add.circle(
+                    this.x + Phaser.Math.Between(-12, 12),
+                    this.y - Phaser.Math.Between(0, 20),
+                    Phaser.Math.Between(4, 9), 0xff5722, 0.85
+                );
+                this.scene.tweens.add({ targets: gfx, alpha: 0, scaleX: 2, scaleY: 2, duration: 350, onComplete: () => gfx.destroy() });
+            }
+            if (this.burnTimer <= 0) {
+                this.isBurning = false;
+                if (!this.slowed) this._restoreTypeTint();
+            }
+        }
+
         switch (this.enemyType) {
             case 'guard':
             case 'runner':
@@ -179,12 +204,14 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
                     if (this.body.blocked.down && this.jumpCd <= 0 && this.enemyType !== 'juggernaut') {
                         const playerAbove  = player.y < this.y - 100;
+                        const horizDist    = Math.abs(player.x - this.x);
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
-                        if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(playerAbove ? -820 : -720);
+                        const inRange      = horizDist < 300;
+                        if ((playerAbove && inRange) || blockedHoriz) {
+                            this.setVelocityY(playerAbove ? -860 : -720);
                             this.jumpCd = playerAbove
-                                ? Phaser.Math.Between(800, 1400)
-                                : Phaser.Math.Between(1600, 2800);
+                                ? Phaser.Math.Between(500, 900)
+                                : Phaser.Math.Between(1200, 2200);
                         }
                     }
                 } else {
@@ -229,12 +256,14 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                     this.setVelocityX(dir * spd);
                     if (this.body.blocked.down && this.jumpCd <= 0) {
                         const playerAbove  = player.y < this.y - 100;
+                        const horizDist    = Math.abs(player.x - this.x);
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
-                        if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(playerAbove ? -820 : -720);
+                        const inRange      = horizDist < 300;
+                        if ((playerAbove && inRange) || blockedHoriz) {
+                            this.setVelocityY(playerAbove ? -860 : -720);
                             this.jumpCd = playerAbove
-                                ? Phaser.Math.Between(800, 1400)
-                                : Phaser.Math.Between(1600, 2800);
+                                ? Phaser.Math.Between(500, 900)
+                                : Phaser.Math.Between(1200, 2200);
                         }
                     }
                 } else {
@@ -253,10 +282,11 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
                     this.setVelocityX(dir * this.moveSpeed * speedMult);
                     if (this.body.blocked.down && this.jumpCd <= 0) {
                         const playerAbove  = player.y < this.y - 70;
+                        const horizDist    = Math.abs(player.x - this.x);
                         const blockedHoriz = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
-                        if (playerAbove || blockedHoriz) {
-                            this.setVelocityY(-760);
-                            this.jumpCd = Phaser.Math.Between(900, 1500);
+                        if ((playerAbove && horizDist < 300) || blockedHoriz) {
+                            this.setVelocityY(playerAbove ? -800 : -760);
+                            this.jumpCd = Phaser.Math.Between(500, 900);
                         }
                     }
                 } else {
@@ -576,11 +606,12 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             const dir = player.x > this.x ? 1 : -1;
             this.setVelocityX(dir * this.moveSpeed * speedMult);
             if (this.body.blocked.down && this.jumpCd <= 0) {
-                const above   = player.y < this.y - 100;
-                const blocked = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
-                if (above || blocked) {
-                    this.setVelocityY(above ? -840 : -740);
-                    this.jumpCd = above ? Phaser.Math.Between(800,1400) : Phaser.Math.Between(1600,2800);
+                const above     = player.y < this.y - 100;
+                const horizDist = Math.abs(player.x - this.x);
+                const blocked   = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                if ((above && horizDist < 300) || blocked) {
+                    this.setVelocityY(above ? -880 : -740);
+                    this.jumpCd = above ? Phaser.Math.Between(500, 900) : Phaser.Math.Between(1200, 2200);
                 }
             }
         } else {
@@ -710,11 +741,12 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
             const dir = player.x > this.x ? 1 : -1;
             this.setVelocityX(dir * this.moveSpeed * speedMult);
             if (this.body.blocked.down && this.jumpCd <= 0) {
-                const above   = player.y < this.y - 100;
-                const blocked = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
-                if (above || blocked) {
-                    this.setVelocityY(-820);
-                    this.jumpCd = Phaser.Math.Between(700, 1200);
+                const above     = player.y < this.y - 100;
+                const horizDist = Math.abs(player.x - this.x);
+                const blocked   = (dir > 0 && this.body.blocked.right) || (dir < 0 && this.body.blocked.left);
+                if ((above && horizDist < 300) || blocked) {
+                    this.setVelocityY(above ? -860 : -820);
+                    this.jumpCd = Phaser.Math.Between(450, 800);
                 }
             }
         } else {
@@ -855,6 +887,14 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.slowed    = true;
         this.slowTimer = ms;
         this.setTint(0x00b0ff);
+    }
+
+    applyBurnEffect(dps, durationMs) {
+        this.isBurning  = true;
+        this.burnDps    = Math.max(this.burnDps, dps);
+        this.burnTimer  = Math.max(this.burnTimer, durationMs);
+        this.burnTickCd = this.burnTickCd > 0 ? this.burnTickCd : 0;
+        if (!this.slowed) this.setTint(0xff5500);
     }
 
     kill(isLifeSteal) {
