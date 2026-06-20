@@ -63,7 +63,9 @@ export default class GameScene extends Phaser.Scene {
         this.physics.world.setBounds(0, 0, worldW, H);
         this.cameras.main.setBounds(0, 0, worldW, H);
 
-        this.add.tileSprite(W / 2, H / 2, worldW, H, 'bgtile').setScrollFactor(0);
+        this._bgSprite    = this.add.tileSprite(W / 2, H / 2, worldW, H, 'bgtile').setScrollFactor(0).setDepth(-4);
+        this._currentZone = 0;
+        this._roomDecorGfx = null;
 
         this.groundGroup   = this.physics.add.staticGroup();
         this.platformGroup = this.physics.add.staticGroup();
@@ -408,6 +410,8 @@ export default class GameScene extends Phaser.Scene {
         const startX      = roomIndex * ROOM_W;
         const isBoss      = this.floor % 10 === 0;
         const isMiniBoss  = this.floor % 10 === 5;
+
+        this._updateRoomEnvironment(startX, isBoss);
 
         this.registry.set('bossActive', false);
         this.enemyCount = 0;
@@ -1618,6 +1622,212 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    _updateRoomEnvironment(startX, isBoss) {
+        // Swap background texture when zone changes (every 10 floors)
+        const zone = Math.floor((this.floor - 1) / 10);
+        if (zone !== this._currentZone) {
+            const BG_KEYS = ['bgtile', 'bgtile_neon', 'bgtile_volcanic', 'bgtile_void'];
+            this._bgSprite.setTexture(BG_KEYS[Math.min(zone, 3)]);
+            this._currentZone = zone;
+        }
+
+        // Destroy previous room decoration
+        if (this._roomDecorGfx) { this._roomDecorGfx.destroy(); this._roomDecorGfx = null; }
+
+        // Boss rooms manage their own backgrounds; skip decoration
+        if (isBoss) return;
+
+        this._roomDecorGfx = this.add.graphics().setDepth(-1);
+        this._drawRoomAtmosphere(startX, zone);
+    }
+
+    _drawRoomAtmosphere(startX, zone) {
+        const g  = this._roomDecorGfx;
+        const GY = GROUND_Y;
+        const RW = ROOM_W;
+
+        if (zone === 0) {
+            // ── Cave / Stone Ruins ──────────────────────────────────────────
+            // Stalactites hanging from ceiling (irregular stone spikes)
+            for (let i = 0; i < 8; i++) {
+                const sx     = startX + 60 + i * 175 + Phaser.Math.Between(-35, 35);
+                const height = Phaser.Math.Between(45, 150);
+                const width  = Phaser.Math.Between(10, 24);
+                g.fillStyle(0x1a1510, 1);
+                g.fillTriangle(sx - width, 82, sx + width, 82, sx, 82 + height);
+                // Darker inner shadow on stalactite
+                g.fillStyle(0x110e0b, 1);
+                g.fillTriangle(sx - Math.floor(width * 0.5), 82, sx + Math.floor(width * 0.5), 82, sx, 82 + Math.floor(height * 0.8));
+                // Moisture drip trail
+                g.fillStyle(0x1a304a, 0.55);
+                g.fillRect(sx - 1, 82 + height, 2, Phaser.Math.Between(15, 55));
+            }
+            // Small stalactite clusters near top-left and top-right
+            for (let i = 0; i < 5; i++) {
+                const sx = startX + (i % 2 === 0 ? Phaser.Math.Between(10, 220) : Phaser.Math.Between(RW - 220, RW - 10));
+                const h  = Phaser.Math.Between(20, 60);
+                const w  = Phaser.Math.Between(5, 12);
+                g.fillStyle(0x1c1814, 1);
+                g.fillTriangle(sx - w, 82, sx + w, 82, sx, 82 + h);
+            }
+            // Puddles on ground (light catching in floor depressions)
+            for (let i = 0; i < 4; i++) {
+                const px = startX + 120 + i * 330 + Phaser.Math.Between(-40, 40);
+                g.fillStyle(0x1a3050, 0.30);
+                g.fillEllipse(px, GY - 6, 70, 10);
+                g.fillStyle(0x4080c0, 0.12);
+                g.fillEllipse(px - 5, GY - 7, 40, 5);
+            }
+            // Mossy growths on left/right walls
+            g.fillStyle(0x0f2210, 0.45);
+            for (let y = 120; y < GY - 60; y += 90) {
+                g.fillRect(startX + 5, y + Phaser.Math.Between(-10, 10), 10, Phaser.Math.Between(20, 45));
+                g.fillRect(startX + RW - 15, y + Phaser.Math.Between(-10, 10), 10, Phaser.Math.Between(20, 45));
+            }
+
+        } else if (zone === 1) {
+            // ── Neon City Underground ───────────────────────────────────────
+            // Distant building silhouettes (dark mid-ground)
+            g.fillStyle(0x06041a, 1);
+            const buildW  = [70, 55, 90, 60, 80, 45, 100, 65, 75, 50, 85, 70, 55, 95, 60];
+            const buildH  = [200, 140, 260, 170, 220, 120, 240, 180, 210, 150, 230, 195, 160, 245, 175];
+            let bx = startX;
+            for (let i = 0; i < buildW.length; i++) {
+                g.fillRect(bx, GY - 48 - buildH[i], buildW[i], buildH[i]);
+                bx += buildW[i] + Phaser.Math.Between(4, 18);
+            }
+            // Windows in buildings (glowing rectangles)
+            g.fillStyle(0x3d2090, 0.8);
+            for (let wi = 0; wi < 30; wi++) {
+                const wx = startX + Phaser.Math.Between(20, RW - 20);
+                const wy = GY - 60 - Phaser.Math.Between(20, 220);
+                g.fillRect(wx, wy, Phaser.Math.Between(4, 9), Phaser.Math.Between(3, 6));
+            }
+            g.fillStyle(0x8050d0, 0.5);
+            for (let wi = 0; wi < 20; wi++) {
+                const wx = startX + Phaser.Math.Between(20, RW - 20);
+                const wy = GY - 60 - Phaser.Math.Between(20, 200);
+                g.fillRect(wx + 1, wy + 1, Phaser.Math.Between(2, 5), Phaser.Math.Between(1, 3));
+            }
+            // Rain streaks (light diagonal lines)
+            g.fillStyle(0x4466aa, 0.25);
+            for (let r = 0; r < 45; r++) {
+                const rx = startX + Phaser.Math.Between(0, RW);
+                const ry = Phaser.Math.Between(85, GY - 60);
+                const rl = Phaser.Math.Between(8, 22);
+                g.fillRect(rx, ry, 1, rl);
+            }
+            // Neon sign accents — glowing horizontal strips at random heights
+            const neonCols = [0xcc00ff, 0x00ccff, 0xff0088, 0x00ffcc, 0xffcc00];
+            for (let n = 0; n < 5; n++) {
+                const nx  = startX + 80 + n * 265 + Phaser.Math.Between(-30, 30);
+                const ny  = GY - 80 - Phaser.Math.Between(60, 260);
+                const col = neonCols[n % neonCols.length];
+                g.fillStyle(col, 0.12);
+                g.fillRect(nx - 30, ny - 2, 60, 6);
+                g.fillStyle(col, 0.5);
+                g.fillRect(nx - 20, ny, 40, 2);
+            }
+
+        } else if (zone === 2) {
+            // ── Volcanic Magma Chamber ──────────────────────────────────────
+            // Ground-level lava glow (orange heat rising from floor)
+            g.fillStyle(0xff3300, 0.06);
+            g.fillRect(startX, GY - 100, RW, 100);
+            g.fillStyle(0xff6600, 0.04);
+            g.fillRect(startX, GY - 60, RW, 60);
+            // Lava crack lines running up from floor
+            g.lineStyle(2, 0xcc3300, 0.60);
+            for (let c = 0; c < 7; c++) {
+                const cx  = startX + 80 + c * 200 + Phaser.Math.Between(-30, 30);
+                const cy1 = GY - 48;
+                const cy2 = cy1 - Phaser.Math.Between(50, 180);
+                g.lineBetween(cx, cy1, cx + Phaser.Math.Between(-40, 40), cy2);
+                // Branch cracks
+                g.lineBetween(cx + Phaser.Math.Between(-20, 0), cy1 - 30,
+                               cx + Phaser.Math.Between(10, 40), cy2 + Phaser.Math.Between(0, 40));
+            }
+            // Glowing crack edges on floor
+            g.lineStyle(1, 0xff6600, 0.45);
+            for (let c = 0; c < 5; c++) {
+                const cx = startX + 100 + c * 270 + Phaser.Math.Between(-20, 20);
+                g.lineBetween(cx - 30, GY - 48, cx + 50, GY - 48 - Phaser.Math.Between(20, 60));
+            }
+            // Floating embers (bright drifting sparks)
+            g.fillStyle(0xff8800, 1);
+            for (let e = 0; e < 20; e++) {
+                g.fillRect(
+                    startX + Phaser.Math.Between(30, RW - 30),
+                    Phaser.Math.Between(120, GY - 70),
+                    Phaser.Math.Between(1, 3), Phaser.Math.Between(1, 3)
+                );
+            }
+            g.fillStyle(0xffcc00, 0.8);
+            for (let e = 0; e < 12; e++) {
+                g.fillRect(
+                    startX + Phaser.Math.Between(30, RW - 30),
+                    Phaser.Math.Between(150, GY - 80),
+                    1, 1
+                );
+            }
+            // Scorched rock columns (dark vertical shapes on walls)
+            g.fillStyle(0x0e0400, 0.7);
+            for (let col = 0; col < 3; col++) {
+                const cx = startX + [100, 580, 1050][col] + Phaser.Math.Between(-20, 20);
+                const ch = Phaser.Math.Between(120, 300);
+                const cw = Phaser.Math.Between(20, 45);
+                g.fillRect(cx, GY - 48 - ch, cw, ch);
+            }
+
+        } else {
+            // ── Void / Rift Space ───────────────────────────────────────────
+            // Dense star field
+            g.fillStyle(0xffffff, 0.9);
+            for (let s = 0; s < 70; s++) {
+                g.fillRect(startX + Phaser.Math.Between(0, RW), Phaser.Math.Between(85, GY - 55), 1, 1);
+            }
+            // Slightly larger bright stars
+            g.fillStyle(0xaaaaff, 0.8);
+            for (let s = 0; s < 25; s++) {
+                g.fillRect(startX + Phaser.Math.Between(0, RW), Phaser.Math.Between(85, GY - 55), 2, 2);
+            }
+            // Void rift lines (purple energy fissures)
+            g.lineStyle(1, 0x5500aa, 0.45);
+            for (let r = 0; r < 6; r++) {
+                const rx  = startX + Phaser.Math.Between(80, RW - 80);
+                const ry  = Phaser.Math.Between(100, 500);
+                const rx2 = rx + Phaser.Math.Between(-120, 120);
+                const ry2 = ry + Phaser.Math.Between(60, 200);
+                g.lineBetween(rx, ry, rx2, ry2);
+            }
+            // Crystal void shards (angular silhouettes)
+            g.fillStyle(0x2a0060, 0.55);
+            for (let sh = 0; sh < 10; sh++) {
+                const shx = startX + Phaser.Math.Between(40, RW - 40);
+                const shy = Phaser.Math.Between(100, GY - 100);
+                const hw  = Phaser.Math.Between(4, 14);
+                const hh  = Phaser.Math.Between(12, 38);
+                g.fillTriangle(shx, shy - hh, shx - hw, shy + hh, shx + hw, shy + hh);
+            }
+            // Bright shard facets
+            g.fillStyle(0x7700cc, 0.30);
+            for (let sh = 0; sh < 6; sh++) {
+                const shx = startX + Phaser.Math.Between(40, RW - 40);
+                const shy = Phaser.Math.Between(120, GY - 120);
+                const hw  = Phaser.Math.Between(2, 6);
+                const hh  = Phaser.Math.Between(5, 16);
+                g.fillTriangle(shx, shy - hh, shx - hw, shy + hh, shx + hw, shy + hh);
+            }
+            // Void energy pulse rings (faint circles)
+            g.lineStyle(1, 0x4400aa, 0.25);
+            for (let p = 0; p < 4; p++) {
+                const px = startX + Phaser.Math.Between(150, RW - 150);
+                const py = Phaser.Math.Between(150, GY - 150);
+                g.strokeCircle(px, py, Phaser.Math.Between(40, 110));
+            }
+        }
+    }
+
     _buildPuzzleGauntlet(startX) {
         const TW = 64;
 
@@ -1823,6 +2033,7 @@ export default class GameScene extends Phaser.Scene {
         this.chamberTraps.clear(true, true);
         this.kayoKnives.clear(true, true);
         this.killjoyRods.clear(true, true);
+        if (this._roomDecorGfx) { this._roomDecorGfx.destroy(); this._roomDecorGfx = null; }
         if (this._puzzleTweens) { this._puzzleTweens.forEach(tw => tw.remove()); this._puzzleTweens = null; }
         if (this._puzzleMarker)  { this._puzzleMarker.destroy();  this._puzzleMarker  = null; }
         if (this._puzzleVoidGfx) { this._puzzleVoidGfx.destroy(); this._puzzleVoidGfx = null; }

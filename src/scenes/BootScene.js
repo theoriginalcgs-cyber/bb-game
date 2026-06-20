@@ -1081,14 +1081,121 @@ export default class BootScene extends Phaser.Scene {
         door.generateTexture('door', 56, 96);
         door.destroy();
 
-        // Background tile
+        // ── Zone 0 (floors 1-10): Cave / Stone Ruins ────────────────────────────
         const bg = this.make.graphics({ x: 0, y: 0, add: false });
-        bg.fillStyle(0x091520);
-        bg.fillRect(0, 0, 64, 64);
-        bg.lineStyle(1, 0x0e1f2e, 1);
-        bg.strokeRect(0, 0, 64, 64);
+        // Base: dark wet stone
+        bg.fillStyle(0x0f0d0b); bg.fillRect(0, 0, 64, 64);
+        // Rough stone block quadrants — slightly different tones for texture
+        bg.fillStyle(0x1c1915); bg.fillRect(1,  1,  30, 29);   // top-left
+        bg.fillStyle(0x171411); bg.fillRect(33, 1,  30, 29);   // top-right
+        bg.fillStyle(0x191613); bg.fillRect(1,  33, 30, 30);   // bottom-left
+        bg.fillStyle(0x1a1714); bg.fillRect(33, 33, 30, 30);   // bottom-right
+        // Mortar cracks between blocks (deep shadow)
+        bg.fillStyle(0x080605); bg.fillRect(31, 0, 2, 64);
+        bg.fillStyle(0x080605); bg.fillRect(0, 31, 64, 2);
+        // Rock surface grain — lighter speckle patches
+        bg.fillStyle(0x272118); bg.fillRect(5, 5, 7, 4);
+        bg.fillStyle(0x252019); bg.fillRect(41, 10, 5, 3);
+        bg.fillStyle(0x231e17); bg.fillRect(10, 44, 8, 4);
+        bg.fillStyle(0x262118); bg.fillRect(48, 48, 6, 5);
+        bg.fillStyle(0x201c15); bg.fillRect(22, 20, 5, 3);
+        bg.fillStyle(0x211c15); bg.fillRect(44, 38, 4, 4);
+        // Moisture drip streaks (thin, faint)
+        bg.fillStyle(0x14202e); bg.fillRect(8,  0, 1, 30);
+        bg.fillStyle(0x12202c); bg.fillRect(52, 0, 1, 28);
+        bg.fillStyle(0x13212d); bg.fillRect(18, 33, 1, 29);
+        bg.fillStyle(0x14222f); bg.fillRect(44, 35, 1, 27);
         bg.generateTexture('bgtile', 64, 64);
         bg.destroy();
+
+        // ── Zone 1 (floors 11-20): Neon City Underground ─────────────────────────
+        const bgN1 = this.make.graphics({ x: 0, y: 0, add: false });
+        // Near-black urban base
+        bgN1.fillStyle(0x05031a); bgN1.fillRect(0, 0, 64, 64);
+        // Distant building shapes (dark silhouettes)
+        bgN1.fillStyle(0x0a0830); bgN1.fillRect(0, 14, 20, 50);
+        bgN1.fillStyle(0x080625); bgN1.fillRect(22, 22, 14, 42);
+        bgN1.fillStyle(0x0c0a32); bgN1.fillRect(38, 10, 26, 54);
+        // City grid lines (faint street-level grid)
+        bgN1.fillStyle(0x100c40); bgN1.fillRect(0, 31, 64, 1);
+        bgN1.fillStyle(0x100c40); bgN1.fillRect(31, 0, 1, 64);
+        // Glowing window lights in buildings
+        bgN1.fillStyle(0x4030a0); bgN1.fillRect(3,  17, 6, 4);
+        bgN1.fillStyle(0x8060d0); bgN1.fillRect(4,  18, 4, 2);  // bright center
+        bgN1.fillStyle(0x302080); bgN1.fillRect(3,  25, 5, 3);
+        bgN1.fillStyle(0x6050b0); bgN1.fillRect(4,  26, 3, 1);
+        bgN1.fillStyle(0x502090); bgN1.fillRect(40, 12, 7, 4);
+        bgN1.fillStyle(0x9040c0); bgN1.fillRect(41, 13, 5, 2);
+        bgN1.fillStyle(0x203068); bgN1.fillRect(40, 20, 8, 3);
+        bgN1.fillStyle(0x4060a0); bgN1.fillRect(41, 21, 6, 1);
+        bgN1.fillStyle(0x2a1878); bgN1.fillRect(55, 14, 6, 4);
+        bgN1.fillStyle(0x6040b0); bgN1.fillRect(56, 15, 4, 2);
+        bgN1.fillStyle(0x301878); bgN1.fillRect(44, 38, 7, 4);
+        bgN1.fillStyle(0x7040b8); bgN1.fillRect(45, 39, 5, 2);
+        bgN1.fillStyle(0x202870); bgN1.fillRect(8,  42, 8, 4);
+        bgN1.fillStyle(0x4858a8); bgN1.fillRect(9,  43, 6, 2);
+        // Neon accent strip at top edge
+        bgN1.fillStyle(0x6600cc); bgN1.fillRect(0, 0, 64, 1);
+        bgN1.fillStyle(0x3300aa); bgN1.fillRect(0, 1, 64, 1);
+        bgN1.generateTexture('bgtile_neon', 64, 64); bgN1.destroy();
+
+        // ── Zone 2 (floors 21-30): Volcanic Magma Chamber ────────────────────────
+        const bgV1 = this.make.graphics({ x: 0, y: 0, add: false });
+        // Near-black scorched rock
+        bgV1.fillStyle(0x0e0300); bgV1.fillRect(0, 0, 64, 64);
+        // Rock panels
+        bgV1.fillStyle(0x180800); bgV1.fillRect(1, 1, 29, 29);
+        bgV1.fillStyle(0x140600); bgV1.fillRect(33, 1, 30, 29);
+        bgV1.fillStyle(0x160700); bgV1.fillRect(1, 33, 29, 30);
+        bgV1.fillStyle(0x150700); bgV1.fillRect(33, 33, 30, 30);
+        // Lava vein network — bright orange cracks
+        bgV1.fillStyle(0xcc3300); bgV1.fillRect(31, 0, 2, 64);    // main vertical vein
+        bgV1.fillStyle(0xcc3300); bgV1.fillRect(0, 31, 64, 2);    // main horizontal vein
+        // Glow edge of veins
+        bgV1.fillStyle(0xff6600); bgV1.fillRect(31, 0, 1, 64);    // bright left edge
+        bgV1.fillStyle(0xff6600); bgV1.fillRect(0, 31, 64, 1);    // bright top edge
+        // Secondary cracks branching off
+        bgV1.fillStyle(0x882200); bgV1.fillRect(15, 32, 16, 1);
+        bgV1.fillStyle(0x882200); bgV1.fillRect(32, 48, 1, 16);
+        bgV1.fillStyle(0x882200); bgV1.fillRect(33, 12, 20, 1);
+        bgV1.fillStyle(0x882200); bgV1.fillRect(14, 33, 1, 18);
+        // Ember hotspots at crack junctions
+        bgV1.fillStyle(0xff8c00); bgV1.fillRect(12, 11, 3, 3);
+        bgV1.fillStyle(0xff4400); bgV1.fillRect(13, 12, 1, 1);
+        bgV1.fillStyle(0xff8c00); bgV1.fillRect(49, 50, 3, 3);
+        bgV1.fillStyle(0xff4400); bgV1.fillRect(50, 51, 1, 1);
+        bgV1.fillStyle(0xff6600); bgV1.fillRect(50, 14, 2, 2);
+        bgV1.fillStyle(0xff6600); bgV1.fillRect(13, 50, 2, 2);
+        bgV1.generateTexture('bgtile_volcanic', 64, 64); bgV1.destroy();
+
+        // ── Zone 3 (floors 31+): The Void / Rift Space ───────────────────────────
+        const bgVo1 = this.make.graphics({ x: 0, y: 0, add: false });
+        // Pure void black
+        bgVo1.fillStyle(0x020109); bgVo1.fillRect(0, 0, 64, 64);
+        // Void energy grid (faint purple lines)
+        bgVo1.fillStyle(0x1a0050); bgVo1.fillRect(0, 21, 64, 1);
+        bgVo1.fillStyle(0x1a0050); bgVo1.fillRect(0, 43, 64, 1);
+        bgVo1.fillStyle(0x1a0050); bgVo1.fillRect(21, 0, 1, 64);
+        bgVo1.fillStyle(0x1a0050); bgVo1.fillRect(43, 0, 1, 64);
+        // Void node glow at intersections
+        bgVo1.fillStyle(0x5500bb); bgVo1.fillRect(20, 20, 3, 3);
+        bgVo1.fillStyle(0x3300aa); bgVo1.fillRect(42, 42, 3, 3);
+        bgVo1.fillStyle(0x4400cc); bgVo1.fillRect(20, 42, 3, 3);
+        bgVo1.fillStyle(0x3300aa); bgVo1.fillRect(42, 20, 3, 3);
+        bgVo1.fillStyle(0x8833ff); bgVo1.fillRect(21, 21, 1, 1);  // bright center
+        bgVo1.fillStyle(0x8833ff); bgVo1.fillRect(43, 43, 1, 1);
+        bgVo1.fillStyle(0x9944ff); bgVo1.fillRect(21, 43, 1, 1);
+        bgVo1.fillStyle(0x7722ee); bgVo1.fillRect(43, 21, 1, 1);
+        // Star field (white pixels)
+        const STARS = [[4,8],[12,22],[28,5],[33,18],[44,7],[56,28],[9,40],[22,50],
+                       [38,44],[55,55],[18,35],[49,38],[62,15],[7,60],[41,60],[58,6],[3,52],[30,35]];
+        bgVo1.fillStyle(0xffffff);
+        STARS.forEach(([sx, sy]) => bgVo1.fillRect(sx, sy, 1, 1));
+        // Brighter star nodes
+        bgVo1.fillStyle(0xaaaaff); bgVo1.fillRect(16, 8, 2, 2);
+        bgVo1.fillStyle(0xbbbbff); bgVo1.fillRect(50, 38, 2, 2);
+        bgVo1.fillStyle(0xaaaaff); bgVo1.fillRect(36, 54, 2, 2);
+        bgVo1.generateTexture('bgtile_void', 64, 64); bgVo1.destroy();
 
         // Viper boss room background tile (toxic domain)
         const vbg = this.make.graphics({ x: 0, y: 0, add: false });
