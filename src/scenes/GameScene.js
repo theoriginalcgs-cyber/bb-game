@@ -401,6 +401,10 @@ export default class GameScene extends Phaser.Scene {
             this.registry.set('agentKey',     this.agentKey);
             this.registry.set('playerShield', this.player.shieldHp ?? 0);
         });
+
+        // Debug mode — activate with ?debug=1 in URL
+        const _params = new URLSearchParams(window.location.search);
+        if (_params.get('debug') === '1') this._initDebug(_params);
     }
 
     // ─── Room Generation ────────────────────────────────────────────
@@ -409,7 +413,7 @@ export default class GameScene extends Phaser.Scene {
 
         const startX      = roomIndex * ROOM_W;
         const isBoss      = this.floor % 10 === 0;
-        const isMiniBoss  = this.floor % 10 === 5;
+        const isMiniBoss  = this.floor % 10 === 5 && this.floor > 5; // first mini-boss at floor 15
 
         this._updateRoomEnvironment(startX, isBoss);
 
@@ -471,7 +475,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.player) this._applyCurse(this.activeCurse);
 
                 // Start void timer (delay decreases with floor, void speeds up)
-                const delay = Math.max(14000, 28000 - this.floor * 450);
+                const delay = Math.max(18000, 35000 - this.floor * 300);
                 this._voidTimer = this.time.delayedCall(delay, () => {
                     if (!this.roomDone) {
                         this.voidActive = true;
@@ -996,7 +1000,7 @@ export default class GameScene extends Phaser.Scene {
     onEnemyDied() {
         if (this.player.lifedrain > 0) this.player.gainHp(this.player.lifedrain);
         this.enemyCount = Math.max(0, this.enemyCount - 1);
-        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.max(5, Math.ceil(this.floor / 2));
+        const coinAmt = (this.player.goldMagnet ? 2 : 1) * Math.max(8, Math.ceil(this.floor / 2));
         this.coins += coinAmt;
         this.registry.set('coins', this.coins);
         if (this.player.deathmark) this.player.deathmarkReady = true;
@@ -1569,7 +1573,8 @@ export default class GameScene extends Phaser.Scene {
     // ─── Random Event System ────────────────────────────────────────
     _launchEvent(startX) {
         const TYPES = ['shop', 'puzzle', 'minigame', 'casino'];
-        this.eventType = TYPES[Phaser.Math.Between(0, 3)];
+        this.eventType = this._pendingForceEvent || TYPES[Phaser.Math.Between(0, 3)];
+        this._pendingForceEvent = null;
 
         if (this.eventType === 'shop') {
             this._showEventBanner('⬡ SHOP UNLOCKED', 'Spend your coins on upgrades', '#ffd700');
@@ -2161,7 +2166,15 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (this.player.y > this.scale.height + 50) {
-            this.player.takeDamage(999);
+            if (!this.registry.get('debugGodMode')) this.player.takeDamage(999);
+        }
+
+        // Debug FPS/info tick
+        if (this._dbText && this._dbText.active) {
+            const fps = Math.round(this.game.loop.actualFps);
+            this._dbText.setText(
+                `[DEBUG]\nFLOOR  ${this.floor}\nHP     ${Math.ceil(this.player.hp)} / ${this.player.maxHp}\nCOINS  ${this.coins}\nFPS    ${fps}\n\nG  god mode ${this.registry.get('debugGodMode') ? 'ON' : 'OFF'}\nC  +500 coins\nF  boss floor\nP  puzzle room\nS  shop room\n\`  toggle panel`
+            );
         }
 
         if (this.jettDaggers && this.player.active) {
@@ -2180,6 +2193,8 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
+        // Debug panel update is handled inline above this block
+
         // Viper's Pit decay — 3% of max HP per tick, floors at 1, never kills on its own
         if (this.viperPitActive && this.player.active) {
             this.viperPitDecayCd -= delta;
@@ -2196,5 +2211,82 @@ export default class GameScene extends Phaser.Scene {
                 }
             }
         }
+    }
+
+    // ─── Debug Mode (URL: ?debug=1) ─────────────────────────────────────────
+    _initDebug(params) {
+        const W = this.scale.width;
+
+        // Apply URL param shortcuts
+        const forceBoss  = params.get('boss');
+        const forceFloor = parseInt(params.get('floor'));
+        const forceEvent = params.get('event');
+
+        if (forceBoss)              this.registry.set('forceBossType', forceBoss);
+        if (!isNaN(forceFloor) && forceFloor > 1) {
+            this.floor = forceFloor - 1;
+            this.roomIndex = forceFloor - 2;
+            this.advanceRoom();
+        }
+        if (forceEvent)             this._pendingForceEvent = forceEvent;
+
+        // Overlay panel (fixed to screen, top-right)
+        const panel = this.add.container(W - 4, 88).setScrollFactor(0).setDepth(200);
+        const panelBg = this.add.graphics();
+        panelBg.fillStyle(0x000000, 0.72);
+        panelBg.fillRect(-192, 0, 188, 182);
+        panelBg.lineStyle(1, 0x00e5ff, 0.5);
+        panelBg.strokeRect(-192, 0, 188, 182);
+        this._dbText = this.add.text(-186, 6, '', {
+            fontSize: '10px', color: '#00e5ff', fontFamily: 'monospace', lineSpacing: 4,
+        });
+        panel.add([panelBg, this._dbText]);
+        this._dbPanel = panel;
+
+        // ── Keyboard shortcuts ────────────────────────────────────────────
+        // G: toggle god mode
+        this.input.keyboard.on('keydown-G', () => {
+            const next = !this.registry.get('debugGodMode');
+            this.registry.set('debugGodMode', next);
+            this._showEventBanner(
+                next ? '⚡ GOD MODE ON' : '☠ GOD MODE OFF', '',
+                next ? '#44ff44' : '#ff4444'
+            );
+        });
+
+        // C: add 500 coins
+        this.input.keyboard.on('keydown-C', () => {
+            this.coins += 500;
+            this.registry.set('coins', this.coins);
+        });
+
+        // F: jump to next boss floor (nearest multiple of 10)
+        this.input.keyboard.on('keydown-F', () => {
+            const nextBoss = (Math.floor(this.floor / 10) + 1) * 10;
+            this.floor    = nextBoss - 1;
+            this.advanceRoom();
+        });
+
+        // P: force puzzle event on next regular floor
+        this.input.keyboard.on('keydown-P', () => {
+            this._pendingForceEvent = 'puzzle';
+            this._showEventBanner('DEBUG: Next room → PUZZLE', '', '#00e5ff');
+        });
+
+        // S: force shop event on next regular floor
+        this.input.keyboard.on('keydown-S', () => {
+            this._pendingForceEvent = 'shop';
+            this._showEventBanner('DEBUG: Next room → SHOP', '', '#ffd700');
+        });
+
+        // Backtick: toggle panel visibility
+        this.input.keyboard.on('keydown-BACKTICK', () => {
+            this._dbPanel.setVisible(!this._dbPanel.visible);
+        });
+
+        // Add coins param shortcut
+        const paramCoins = parseInt(params.get('coins'));
+        if (!isNaN(paramCoins)) { this.coins += paramCoins; this.registry.set('coins', this.coins); }
+        if (params.get('godmode') === '1') this.registry.set('debugGodMode', true);
     }
 }

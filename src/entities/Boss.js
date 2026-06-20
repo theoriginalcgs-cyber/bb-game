@@ -29,7 +29,7 @@ export default class Boss extends Phaser.Physics.Arcade.Sprite {
         const tier = Math.floor(floor / 10);
         this.tier  = tier;
 
-        this.maxHp       = 1500 + floor * 400;                     // scales per floor (floor 10 → 5500)
+        this.maxHp       = Math.round(500 + floor * 120 + floor * floor * 5); // floor 10→2200, 20→4900, 30→8600
         this.hp          = this.maxHp;
         this.phase       = 1;
         this.moveSpeed   = 90 + tier * 12;

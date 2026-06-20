@@ -12,7 +12,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const stats = {
             jett:    { maxHp: 100, speed: 340, jump: -660, damage: 20, abilityCd: 4000 },
             phoenix: { maxHp: 100, speed: 290, jump: -620, damage: 28, abilityCd: 5000 },
-            sage:    { maxHp: 150, speed: 255, jump: -600, damage: 18, abilityCd: 8000 },
+            sage:    { maxHp: 160, speed: 268, jump: -610, damage: 28, abilityCd: 6500 },
             reyna:   { maxHp: 100, speed: 310, jump: -640, damage: 26, abilityCd: 6000 },
         };
 
@@ -421,6 +421,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     takeDamage(amount) {
+        if (this.scene.registry.get('debugGodMode')) return;
         if (this.invincible || this._powerupInvincible) return;
 
         if (this.shieldHp > 0) {
@@ -527,7 +528,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
                 this.hp = Math.min(this.hp + 15, this.maxHp);
                 this.scene.events.emit('hpChanged', this.hp);
                 break;
-            case 'atk_speed': this.attackCdMax = Math.max(80, this.attackCdMax - 60); break;
+            case 'atk_speed': {
+                const stacks = this.upgrades.filter(u => u === 'atk_speed').length; // includes current
+                const cut = Math.round(60 * Math.pow(0.8, stacks - 1)); // 60→48→38→31…
+                this.attackCdMax = Math.max(80, this.attackCdMax - cut);
+                break;
+            }
             case 'crit':      this.critChance = Math.min(0.8, this.critChance + 0.25); break;
             case 'multishot': this.multishotLevel++; break;
             case 'armor':     this.damageReduction *= 0.85; break;

@@ -1,0 +1,55 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # allow manual trigger from Actions tab
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Wait for GitHub Pages to deploy
+        run: |
+          echo "Waiting 90s for Pages deployment..."
+          sleep 90
+
+      - name: Check Pages is reachable
+        run: |
+          for i in {1..6}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://theoriginalcgs-cyber.github.io/bb-game/)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then break; fi
+            sleep 15
+          done
+
+      - name: Run smoke tests
+        run: npx playwright test
+        env:
+          GAME_URL: https://theoriginalcgs-cyber.github.io/bb-game/
+
+      - name: Upload test results & screenshots
+        if: always()   # upload even if tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-results-${{ github.sha }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14

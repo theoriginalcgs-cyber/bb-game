@@ -178,7 +178,7 @@ export default class ShopScene extends Phaser.Scene {
     }
 
     _reroll() {
-        const cost = REROLL_BASE * (this._rerolls + 1);
+        const cost = Math.round(REROLL_BASE * Math.pow(2, this._rerolls)); // 100→200→400→800…
         if (this.coins < cost) {
             this.rerollBtn.setColor('#ff4444');
             this.time.delayedCall(400, () => this.rerollBtn.setColor('#aaaaaa'));
@@ -193,7 +193,7 @@ export default class ShopScene extends Phaser.Scene {
     }
 
     _updateRerollBtn() {
-        const cost = REROLL_BASE * (this._rerolls + 1);
+        const cost = Math.round(REROLL_BASE * Math.pow(2, this._rerolls));
         const can  = this.coins >= cost;
         this.rerollBtn.setText(`↺  REROLL  (⬡ ${cost})`);
         this.rerollBtn.setColor(can ? '#aaaaaa' : '#443333');

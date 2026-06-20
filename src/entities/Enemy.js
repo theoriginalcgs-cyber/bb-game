@@ -860,11 +860,14 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     kill(isLifeSteal) {
         if (!this.active) return;
 
-        if (Math.random() < 0.22) this.scene.events.emit('dropHealth', this.x, this.y);
-        if (isLifeSteal)          this.scene.events.emit('lifeStealKill', 14);
+        // Health drop scales up as player is lower on HP
+        const player = this.scene.player;
+        const hpMissing = player ? Math.max(0, 1 - player.hp / player.maxHp) : 0;
+        if (Math.random() < 0.22 + hpMissing * 0.15) this.scene.events.emit('dropHealth', this.x, this.y);
+        if (isLifeSteal) this.scene.events.emit('lifeStealKill', 14);
 
         const POWERUP_TYPES = ['powerup_firerate', 'powerup_invincible', 'powerup_jumps'];
-        if (Math.random() < 0.05)
+        if (Math.random() < Math.min(0.18, 0.05 + this.floor * 0.003))
             this.scene.events.emit('dropPowerup', this.x, this.y,
                 POWERUP_TYPES[Phaser.Math.Between(0, POWERUP_TYPES.length - 1)]);
 
