@@ -1037,8 +1037,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     spawnDoor() {
-        const doorX = (this.roomIndex + 1) * ROOM_W - 80;
-        const door  = this.doorGroup.create(doorX, GROUND_Y - 48, 'door');
+        let doorX = (this.roomIndex + 1) * ROOM_W - 80;
+        let doorY = GROUND_Y - 48;
+        if (this.eventType === 'puzzle' && this._puzzleDoorX != null) {
+            doorX = this._puzzleDoorX;
+            doorY = this._puzzleDoorY;
+        }
+        const door  = this.doorGroup.create(doorX, doorY, 'door');
         door.setImmovable(true);
         door.refreshBody();
         door.setAlpha(0);
@@ -1573,13 +1578,15 @@ export default class GameScene extends Phaser.Scene {
 
         } else if (this.eventType === 'puzzle') {
             this._puzzleDoorReady = false;
+            this._puzzleDoorX     = null;
+            this._puzzleDoorY     = null;
             this.registry.set('puzzleExpired', false);
             this._showEventBanner('⏱ PLATFORMING CHALLENGE', 'Reach the exit in time for a BONUS UPGRADE!', '#00e5ff');
-            // Brief delay so player sees the banner, then launch countdown overlay + allow door
             this.time.delayedCall(2000, () => {
+                this._buildPuzzleGauntlet(startX);
                 this.scene.launch('EventScene', { type: 'puzzle', floor: this.floor });
                 this._puzzleDoorReady = true;
-                this._checkRoomClear(); // now with 0 enemies the door will spawn
+                this._checkRoomClear();
             });
 
         } else if (this.eventType === 'minigame') {
@@ -1609,6 +1616,98 @@ export default class GameScene extends Phaser.Scene {
                 this.scene.pause();
             });
         }
+    }
+
+    _buildPuzzleGauntlet(startX) {
+        const TW = 64;
+
+        // Clear existing platforms in this room so the gauntlet layout is clean
+        this.platformGroup.getChildren().slice().forEach(p => {
+            if (p.x >= startX && p.x < startX + ROOM_W) p.destroy();
+        });
+
+        const zone = Math.floor((this.floor - 1) / 10);
+        const PKEYS = ['platform', 'platform_neon', 'platform_volcanic', 'platform_void'];
+        const pk = PKEYS[Math.min(zone, 3)];
+
+        this._puzzleTweens = [];
+
+        const addPlatform = (xOff, y, cols) => {
+            const tiles = [];
+            for (let c = 0; c < cols; c++) {
+                const t = this.platformGroup.create(startX + xOff + c * TW + TW / 2, y, pk);
+                t.setImmovable(true);
+                t.refreshBody();
+                tiles.push(t);
+            }
+            return tiles;
+        };
+
+        const addMovingH = (xOff, y, cols, range, speed) => {
+            const tiles = addPlatform(xOff, y, cols);
+            const tw = this.tweens.add({
+                targets: tiles,
+                x: `+=${range}`,
+                duration: speed,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1,
+                onUpdate: () => tiles.forEach(t => { if (t.body) t.body.reset(t.x, t.y); }),
+            });
+            this._puzzleTweens.push(tw);
+            return tiles;
+        };
+
+        const addMovingV = (xOff, y, cols, range, speed) => {
+            const tiles = addPlatform(xOff, y, cols);
+            const tw = this.tweens.add({
+                targets: tiles,
+                y: `+=${range}`,
+                duration: speed,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1,
+                onUpdate: () => tiles.forEach(t => { if (t.body) t.body.reset(t.x, t.y); }),
+            });
+            this._puzzleTweens.push(tw);
+            return tiles;
+        };
+
+        // ── Gauntlet: 8 platforms climbing left-to-right, 3 moving ─────────
+        addPlatform( 140, GROUND_Y - 130, 3);                    // 1: easy start
+        addMovingH(  380, GROUND_Y - 200, 2, 100, 2200);         // 2: sliding ←→
+        addPlatform( 570, GROUND_Y - 160, 2);                    // 3: recovery ledge
+        addMovingV(  710, GROUND_Y - 295, 2,  75, 1400);         // 4: bobbing up/down
+        addPlatform( 890, GROUND_Y - 250, 2);                    // 5: mid-climb
+        addMovingH( 1040, GROUND_Y - 350, 2, 110, 1800);         // 6: fast slider
+        addPlatform(1200, GROUND_Y - 305, 2);                    // 7: penultimate
+        addPlatform(1285, GROUND_Y - 420, 2);                    // 8: GOAL
+
+        // Door position: centred on the goal platform, above its surface
+        this._puzzleDoorX = startX + 1285 + TW;
+        this._puzzleDoorY = GROUND_Y - 420 - 52;
+
+        // Pulsing "EXIT" marker above the goal
+        const mx = startX + 1285 + TW;
+        const markerGfx = this.add.graphics().setDepth(8);
+        markerGfx.fillStyle(0x00e5ff, 0.75);
+        markerGfx.fillTriangle(mx - 18, GROUND_Y - 450, mx + 18, GROUND_Y - 450, mx, GROUND_Y - 478);
+        markerGfx.fillStyle(0x00e5ff, 0.45);
+        markerGfx.fillRect(mx - 5, GROUND_Y - 482, 10, 30);
+        this._puzzleMarker = markerGfx;
+        this._puzzleTweens.push(this.tweens.add({ targets: markerGfx, alpha: 0.25, yoyo: true, repeat: -1, duration: 500 }));
+
+        this._puzzleExitTxt = this.add.text(mx, GROUND_Y - 494, 'EXIT', {
+            fontSize: '14px', color: '#00e5ff', fontStyle: 'bold', letterSpacing: 4,
+        }).setOrigin(0.5).setDepth(9);
+        this._puzzleTweens.push(this.tweens.add({ targets: this._puzzleExitTxt, alpha: 0.3, yoyo: true, repeat: -1, duration: 680 }));
+
+        // Danger stripe on the ground in the gap section (visual cue)
+        this._puzzleVoidGfx = this.add.graphics().setDepth(1);
+        this._puzzleVoidGfx.fillStyle(0x330000, 0.4);
+        this._puzzleVoidGfx.fillRect(startX + 295, GROUND_Y - 10, 965, 10);
+        this._puzzleVoidGfx.lineStyle(2, 0xff2200, 0.55);
+        this._puzzleVoidGfx.strokeRect(startX + 295, GROUND_Y - 10, 965, 10);
     }
 
     _spawnMinigameWave(startX) {
@@ -1724,6 +1823,12 @@ export default class GameScene extends Phaser.Scene {
         this.chamberTraps.clear(true, true);
         this.kayoKnives.clear(true, true);
         this.killjoyRods.clear(true, true);
+        if (this._puzzleTweens) { this._puzzleTweens.forEach(tw => tw.remove()); this._puzzleTweens = null; }
+        if (this._puzzleMarker)  { this._puzzleMarker.destroy();  this._puzzleMarker  = null; }
+        if (this._puzzleVoidGfx) { this._puzzleVoidGfx.destroy(); this._puzzleVoidGfx = null; }
+        if (this._puzzleExitTxt) { this._puzzleExitTxt.destroy(); this._puzzleExitTxt = null; }
+        this._puzzleDoorX = null;
+        this._puzzleDoorY = null;
         this.kayoSuppressed    = false;
         this.eventType         = null;
         this._eventRestriction = null;
